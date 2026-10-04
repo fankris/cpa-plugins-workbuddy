@@ -1,0 +1,459 @@
+// checkin.go implements daily check-in for CN accounts: the manual
+// handleManualCheckin endpoint, the 09:00 / 21:00 auto scheduler, and the
+// per-account mutex that prevents duplicate check-ins from racing browser
+// tabs. Global accounts are excluded — they use one-shot trial claims instead.
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
+)
+
+var (
+	schedulerMu      sync.Mutex
+	schedulerStarted bool
+)
+
+func ensureScheduler() {
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
+	if schedulerStarted || !pluginWorkerStart() {
+		return
+	}
+	schedulerStarted = true
+	ctx := pluginContext()
+	go func() {
+		defer pluginWorkerDone()
+		defer func() {
+			schedulerMu.Lock()
+			schedulerStarted = false
+			schedulerMu.Unlock()
+		}()
+		schedulerLoop(ctx)
+	}()
+}
+
+// The scheduler is owned by the plugin lifecycle. quiescePlugin cancels the
+// root context and waits for this worker; no separate stop channel can race
+// with host shutdown or leave a permanent goroutine behind.
+
+func nextCheckinTime(now time.Time) time.Time {
+	var earliest time.Time
+	// Consider all tick schedules so the timer wakes up for whichever fires
+	// first (e.g. 21:00 checkin vs 22:00 keepalive → 21:00 wins, then 22:00
+	// keepalive fires on the next tick; 01:00 wakes the night-owl pass).
+	hours := append([]int{}, checkinHours...)
+	hours = append(hours, keepaliveHours...)
+	hours = append(hours, nightGrowthHours...)
+	for _, h := range hours {
+		t := time.Date(now.Year(), now.Month(), now.Day(), h, 0, 0, 0, now.Location())
+		if !t.After(now) {
+			t = t.Add(24 * time.Hour) // slot already passed today → tomorrow
+		}
+		if earliest.IsZero() || t.Before(earliest) {
+			earliest = t
+		}
+	}
+	return earliest
+}
+
+func schedulerLoop(ctx context.Context) {
+	for {
+		next := nextCheckinTime(time.Now())
+		timer := time.NewTimer(time.Until(next))
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+			if pluginQuiescing() {
+				return
+			}
+			now := time.Now()
+			if shouldRunNightGrowthNow(now) {
+				// 01:00 night tick: ONLY the night-window tasks (夜猫子). The
+				// daily growth pass rides the 09:00/21:00 ticks, which sit
+				// outside the 23:00–08:00 window, so black_cat would never be
+				// lit automatically without this dedicated run. The reference
+				// scheduler does exactly this (每日 01:00 夜猫子).
+				runNightGrowthAll()
+				continue
+			}
+			runAutoCheckin()
+			// Fire keepalive if the current tick falls within its scheduled
+			// window (e.g. 22:00 keepalive fires on the 22:00 tick even though
+			// the previous checkin tick was 21:00).
+			if shouldRunKeepaliveNow(now) {
+				runTokenKeepalive()
+			}
+		}
+	}
+}
+
+// shouldRunNightGrowthNow reports whether now falls inside a night-owl tick
+// window ([h, h+1h), same convention as shouldRunKeepaliveNow).
+func shouldRunNightGrowthNow(now time.Time) bool {
+	for _, h := range nightGrowthHours {
+		t := time.Date(now.Year(), now.Month(), now.Day(), h, 0, 0, 0, now.Location())
+		if !now.Before(t) && now.Before(t.Add(time.Hour)) {
+			return true
+		}
+	}
+	return false
+}
+
+// runAutoCheckin is the scheduled lifecycle tick (09:00 / 21:00).
+// CN: optional daily check-in, then reconcile (disable exhausted / reenable after credits).
+// WorkBuddy service: no auto trial (one-shot claim is manual only); reconcile retains exhausted auths disabled.
+//
+// v0.6.31: per-account work runs concurrently (sem=4) — was serial, so N accounts
+// meant 3N serial HTTP round-trips on the billing API. Matches the pattern used
+// by buildDashboardEx and handleManualCheckin.
+func runAutoCheckin() {
+	if pluginQuiescing() {
+		return
+	}
+	checkinAutoMu.RLock()
+	doCheckin := checkinAuto
+	checkinAutoMu.RUnlock()
+	// Lifecycle may still run when check-in is off (credit gate).
+	if !doCheckin && !lifecycleEnabled() {
+		return
+	}
+	files, err := hostAuthList()
+	if err != nil {
+		return
+	}
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 4)
+	for _, f := range files {
+		f := f
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if pluginQuiescing() {
+				return
+			}
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			processAutoCheckinAccount(f, doCheckin)
+		}()
+	}
+	wg.Wait()
+}
+
+// processAutoCheckinAccount handles one account's scheduled tick. Extracted so
+// runAutoCheckin can fan out per-account work without duplicating logic.
+func processAutoCheckinAccount(f pluginapi.HostAuthFileEntry, doCheckin bool) {
+	// A-24: only fetch sa when needed (checkin). For lifecycle-only paths,
+	// let reconcileOneAccount do the single hostAuthGetBundle internally.
+	if doCheckin {
+		sa, err := hostAuthGet(f.AuthIndex)
+		if err != nil {
+			return
+		}
+		if isWorkBuddyService(sa) {
+			// WorkBuddy service: never check-in or auto-claim trial. Lifecycle only.
+			// Invalidate cache (copy entry, set credits=nil, keep plan/checkin).
+			if v, ok := accountCache.Load(f.ID); ok {
+				if e, ok2 := v.(*accountCacheEntry); ok2 {
+					fresh := *e
+					fresh.credits = nil
+					fresh.fetched = time.Now()
+					accountCache.Store(f.ID, &fresh)
+				}
+			}
+			if lifecycleEnabled() {
+				_, _ = reconcileOneAccount(f.AuthIndex, f.ID, true)
+			}
+			return
+		}
+		// CN: daily check-in when enabled.
+		ci, err := fetchCheckinStatus(sa)
+		if err == nil && ci != nil && ci.Active && !ci.TodayCheckedIn {
+			if _, callErr := performCheckinCall(sa); callErr == nil {
+				// Refresh once after a successful checkin call so cache reflects
+				// the post-call state. If the status call fails keep the pre-call
+				// snapshot rather than dropping it (v0.6.31: avoid shadowing ci
+				// with a second fetch that could race with concurrent readers).
+				if ci2, _ := fetchCheckinStatus(sa); ci2 != nil {
+					ci = ci2
+				}
+				// P1-5: checkin grants new credits — refresh the credits cache
+				// immediately so the panel shows the updated balance without
+				// waiting for the async reconcile pass.
+				if cr2, crErr := fetchUserResource(sa); crErr == nil && cr2 != nil {
+					if v, ok := accountCache.Load(f.ID); ok {
+						if prev, ok2 := v.(*accountCacheEntry); ok2 {
+							fresh := *prev
+							fresh.credits = cr2
+							fresh.fetched = time.Now()
+							accountCache.Store(f.ID, &fresh)
+						}
+					}
+				}
+			}
+		}
+		// Refresh cache with latest checkin status (merge, don't wipe credits/plan).
+		if ci != nil {
+			var prev *accountCacheEntry
+			if v, ok := accountCache.Load(f.ID); ok {
+				prev, _ = v.(*accountCacheEntry)
+			}
+			entry := &accountCacheEntry{checkin: ci, fetched: time.Now()}
+			if prev != nil {
+				entry.credits = prev.credits
+				entry.plan = prev.plan
+			}
+			accountCache.Store(f.ID, entry)
+		}
+		// v0.9.27: growth automation rides the same 09:00/21:00 ticks — light
+		// the daily growth tasks (event reports + claims) and run the buddy
+		// travel loop. Both are best-effort: a growth failure must never
+		// affect check-in or lifecycle results.
+		if growthAutoEnabled() {
+			runGrowthAutomation(f.AuthIndex, sa)
+		}
+		if lifecycleEnabled() {
+			_, _ = reconcileOneAccount(f.AuthIndex, f.ID, true)
+		}
+		return
+	}
+	// Lifecycle-only (checkin off): reconcile handles its own get.
+	if lifecycleEnabled() {
+		_, _ = reconcileOneAccount(f.AuthIndex, f.ID, true)
+	}
+}
+
+// handleManualCheckin serves POST /checkin.
+//
+// Single-account mode (body.auth_index set): runs checkinOneAccount directly —
+// one hostAuthGet + at most two upstream calls (status, then check-in). The
+// old three-phase classify/execute/summarize pipeline ran the same framework
+// for one account as for thirty (4 RPC + 5 HTTP + lock-held re-reads), which
+// routinely blew past the 30s management API timeout: the check-in succeeded
+// upstream but the response never reached the panel.
+//
+// Batch mode (empty auth_index): fans out checkinOneAccount per account
+// (sem=4), preserving input order and the {results, summary} response shape
+// the panel depends on.
+func handleManualCheckin(req pluginapi.ManagementRequest) map[string]any {
+	var body struct {
+		AuthIndex string `json:"auth_index"`
+	}
+	_ = json.Unmarshal(req.Body, &body)
+	authIndex := strings.TrimSpace(body.AuthIndex)
+	single := authIndex != ""
+
+	files, err := hostAuthList()
+	if err != nil {
+		return map[string]any{"error": err.Error()}
+	}
+	var targets []pluginapi.HostAuthFileEntry
+	for _, f := range files {
+		if !single || f.AuthIndex == authIndex {
+			targets = append(targets, f)
+		}
+	}
+	if len(targets) == 0 {
+		return map[string]any{"error": "no matching account"}
+	}
+
+	results := make([]map[string]any, len(targets))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 4)
+	for i, f := range targets {
+		wg.Add(1)
+		go func(i int, f pluginapi.HostAuthFileEntry) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			results[i] = checkinOneAccount(f)
+		}(i, f)
+	}
+	wg.Wait()
+
+	// Summary counters (field names are a panel contract — panel.html
+	// checkinAll reads success/already/fail/skipped_global/eligible).
+	successN, failN, alreadyN, globalN, eligibleN := 0, 0, 0, 0, 0
+	for _, out := range results {
+		if out == nil {
+			continue
+		}
+		if out["error"] != nil {
+			failN++
+			continue
+		}
+		reason, _ := out["reason"].(string)
+		switch reason {
+		case "already":
+			alreadyN++
+			continue
+		case "global", "intl":
+			globalN++
+			continue
+		}
+		eligibleN++
+		if out["success"] == true {
+			successN++
+		} else {
+			failN++
+		}
+	}
+	return map[string]any{
+		"results": results,
+		"summary": map[string]any{
+			"total":          len(targets),
+			"eligible":       eligibleN,
+			"success":        successN,
+			"already":        alreadyN,
+			"skipped_global": globalN,
+			"fail":           failN,
+			"attempted":      eligibleN,
+		},
+	}
+}
+
+// checkinOneAccount performs the daily check-in for one account with the
+// minimum number of round-trips:
+//
+//	hostAuthGet ×1 (RPC) → domain gate → fetchCheckinStatus ×1 (failure
+//	tolerated, upstream is idempotent) → performCheckinCall ×1.
+//
+// No lock-held re-reads, no lifecycle reconcile (that is the scheduled
+// runAutoCheckin path's job), no redundant status refetches. Cache updates
+// merge into the previous entry so credits/plan survive.
+func checkinOneAccount(f pluginapi.HostAuthFileEntry) map[string]any {
+	out := map[string]any{"auth_index": f.AuthIndex}
+
+	sa, err := hostAuthGet(f.AuthIndex)
+	if err != nil {
+		out["error"] = err.Error()
+		return out
+	}
+	out["nickname"] = sa.Account.Nickname
+
+	if isWorkBuddyService(sa) {
+		out["success"] = false
+		out["skipped"] = true
+		out["reason"] = "global"
+		out["message"] = "国际版账号不支持签到，请使用领取专家加油包"
+		return out
+	}
+
+	mu := checkinLockFor(f.AuthIndex)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Status probe: a failure here is NOT fatal — the check-in call below is
+	// idempotent upstream and its business message tells us "already" anyway.
+	ci, ciErr := fetchCheckinStatus(sa)
+	if ciErr == nil && ci != nil && ci.TodayCheckedIn {
+		mergeCheckinCache(f.ID, ci)
+		out["success"] = true
+		out["skipped"] = true
+		out["reason"] = "already"
+		out["message"] = "already checked in today"
+		return out
+	}
+	if ciErr == nil && ci != nil && !ci.Active {
+		// No check-in plan upstream (intl/trial accounts etc.). Calling
+		// daily-checkin anyway would surface the raw business error
+		// "没有签到计划" to the panel, which reads like a failure
+		// (2026-09-02 user report). Surface a clean skip instead — mirrors
+		// cockpit-tools' "签到活动未开启或不适用" handling.
+		mergeCheckinCache(f.ID, ci)
+		out["success"] = false
+		out["skipped"] = true
+		out["reason"] = "inactive"
+		out["message"] = "该账号暂无签到计划（签到活动未开启或不适用）"
+		return out
+	}
+
+	res, err := performCheckinCall(sa)
+	if err != nil {
+		out["error"] = err.Error()
+		out["success"] = false
+		return out
+	}
+	for k, v := range res {
+		out[k] = v
+	}
+	// Business soft-fail ("already checked in" family) → done, not failure.
+	if msg, _ := out["message"].(string); msg != "" && out["success"] == false {
+		low := strings.ToLower(msg)
+		if strings.Contains(low, "already") || strings.Contains(msg, "已签") || strings.Contains(msg, "今日") {
+			out["success"] = true
+			out["skipped"] = true
+			out["reason"] = "already"
+		}
+		if strings.Contains(msg, "签到计划") || strings.Contains(low, "no checkin plan") ||
+			strings.Contains(low, "no check-in plan") {
+			// Upstream explicitly says there is no check-in plan for this
+			// account (intl/trial) — same presentation as the Active gate
+			// above so the panel never shows a raw business error.
+			out["skipped"] = true
+			out["reason"] = "inactive"
+			out["message"] = "该账号暂无签到计划（签到活动未开启或不适用）"
+		}
+	}
+	if _, ok := out["success"]; !ok {
+		out["success"] = true
+	}
+
+	// Post-call cache refresh: one extra status fetch at most; on failure
+	// write a TodayCheckedIn placeholder rather than leaving the panel stale.
+	if ci2, err2 := fetchCheckinStatus(sa); err2 == nil && ci2 != nil {
+		mergeCheckinCache(f.ID, ci2)
+	} else {
+		mergeCheckinCache(f.ID, &checkinSummary{TodayCheckedIn: true})
+	}
+	return out
+}
+
+// mergeCheckinCache stores the latest check-in snapshot while preserving the
+// credits/plan fields of any previous cache entry (merge, not replace).
+func mergeCheckinCache(authID string, ci *checkinSummary) {
+	var prev *accountCacheEntry
+	if v, ok := accountCache.Load(authID); ok {
+		prev, _ = v.(*accountCacheEntry)
+	}
+	entry := &accountCacheEntry{checkin: ci, fetched: time.Now()}
+	if prev != nil {
+		entry.credits = prev.credits
+		entry.plan = prev.plan
+	}
+	accountCache.Store(authID, entry)
+}
+
+func checkinLockFor(authIndex string) *sync.Mutex {
+	v, _ := checkinLocks.LoadOrStore(authIndex, &sync.Mutex{})
+	return v.(*sync.Mutex)
+}
+
+// pruneCheckinLocks removes lock entries for auth indices that no longer
+// exist in hostAuthList. Call after dashboard prune.
+// Lock keys are auth_index (used for host RPC), so live map needs auth_index too.
+func pruneCheckinLocks() {
+	files, err := hostAuthList()
+	if err != nil {
+		return
+	}
+	live := make(map[string]struct{}, len(files))
+	for _, f := range files {
+		live[f.ID] = struct{}{}
+		live[f.AuthIndex] = struct{}{} // checkinLockFor uses auth_index as key
+	}
+	checkinLocks.Range(func(key, _ any) bool {
+		idx, _ := key.(string)
+		if _, ok := live[idx]; !ok {
+			checkinLocks.Delete(key)
+		}
+		return true
+	})
+}
