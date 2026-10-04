@@ -4,6 +4,7 @@ package main
 
 import (
 	_ "embed"
+	"html"
 	"strings"
 	"sync"
 	"time"
@@ -376,6 +377,7 @@ func summarizeCredits(accounts []wbAccount) map[string]any {
 
 // panelAsset is one servable panel file: its content type and bytes.
 type panelAsset struct {
+	statusCode  int
 	contentType string
 	body        []byte
 }
@@ -386,11 +388,13 @@ type panelAsset struct {
 func servePanel(sub string) panelAsset {
 	switch sub {
 	case "", "/", "/panel", "/panel.html":
-		return panelAsset{contentType: "text/html; charset=utf-8", body: panelHTML}
+		return panelAsset{contentType: "text/html; charset=utf-8", body: localizedPanelHTML()}
+	case "/panel-i18n.js":
+		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelI18N}
 	case "/panel.js":
 		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelJS}
 	default:
-		return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>")}
+		return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}
 	}
 }
 
@@ -399,3 +403,13 @@ var panelHTML []byte
 
 //go:embed panel.js
 var panelJS []byte
+
+//go:embed panel-i18n.js
+var panelI18N []byte
+
+// Locale is browser-local. This only injects host-declared path context; never keys.
+func localizedPanelHTML() []byte {
+	page := strings.ReplaceAll(string(panelHTML), "__WB_MANAGEMENT_BASE__", html.EscapeString(loadedManagementBasePath()+"/plugins/"+providerName))
+	page = strings.ReplaceAll(page, "__WB_RESOURCE_BASE__", html.EscapeString(loadedResourceBasePath()))
+	return []byte(page)
+}

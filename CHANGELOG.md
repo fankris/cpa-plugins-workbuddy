@@ -1,5 +1,15 @@
 # Changelog
 
+## v8.0.13-1.0.42 — 2026-10-04
+
+### UI localization, host path security, and test isolation
+
+- Add `panel-i18n.js` providing multi-language support (zh-CN, zh-TW, en, ru) for static UI text, aria attributes, busy states, and density labels.
+- Align with CPAMC `cli-proxy-language` preferences for same-origin embedded panels, with explicit graceful fallback for cross-origin contexts.
+- Enforce host-declared management and resource paths with strict validation and sanitization, rejecting unverified external/injected paths.
+- Add loopback-only restrictions for test direct HTTP transports to prevent any outbound requests during test execution.
+- Add release failure guards to ensure build failures fail closed without publishing empty or broken archives.
+
 ## v8.0.13-1.0.41 — 2026-10-04
 
 ### Resource menu migration and responsive panel workspace

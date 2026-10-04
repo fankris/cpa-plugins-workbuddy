@@ -10,13 +10,30 @@
  * by CPAMC/CPAMP.
  */
 const MANAGEMENT_SUFFIX = "/v0/management/plugins/workbuddy";
-function managementAPIBase(pathname){
-  const path=String(pathname||"").replace(/\/+$/,"");
-  const suffixes=["/v0/resource/plugins/workbuddy/panel","/v0/management/plugins/workbuddy/panel"];
-  for(const suffix of suffixes){if(path.endsWith(suffix))return path.slice(0,-suffix.length)+MANAGEMENT_SUFFIX}
+function safeHostPath(value){
+  const p=String(value||"").replace(/\/+$/,"");
+  if(!p.startsWith("/")||p.includes("//")||/[?#\\%\r\n]/.test(p)||p.split("/").some(part=>part===".."||part==="."))return "";
+  return p;
+}
+function managementAPIBase(pathname, context={}){
+  const current=String(pathname||"").replace(/\/+$/,"");
+  const api=safeHostPath(context.management);
+  const resource=safeHostPath(context.resource);
+  if(api&&resource){
+    for(const suffix of [resource+"/panel",resource+"/panel.html",resource]){
+      if(current.endsWith(suffix))return current.slice(0,-suffix.length)+api;
+    }
+  }
+  const suffixes=["/v0/resource/plugins/workbuddy/panel","/v0/resource/plugins/workbuddy/panel.html","/v0/management/plugins/workbuddy/panel"];
+  for(const suffix of suffixes){if(current.endsWith(suffix))return current.slice(0,-suffix.length)+MANAGEMENT_SUFFIX}
   return MANAGEMENT_SUFFIX;
 }
-const API = managementAPIBase(window.location.pathname);
+function panelPathContext(){
+  const read=name=>document.querySelector('meta[name="'+name+'"]')?.getAttribute("content")||"";
+  return {management:read("wb-management-base"),resource:read("wb-resource-base")};
+}
+const API = managementAPIBase(window.location.pathname,panelPathContext());
+function wbT(key){return window.WorkBuddyI18n.t(key)}
 
 /* ---------- management key acquisition (3 fallbacks, zero config) ----------
    1) Embedding UI localStorage, same-origin iframe:
@@ -169,7 +186,7 @@ function busy(btn,on){
     if(state)state.count++;
     else{state={count:1,disabled:btn.disabled,html:btn.innerHTML};busyStates.set(btn,state)}
     btn.disabled=true;
-    btn.innerHTML='<span class="spin" aria-hidden="true"></span>处理中…';
+    btn.innerHTML='<span class="spin" aria-hidden="true"></span><span data-i18n="busy">'+wbT('busy')+'</span>';
     btn.setAttribute('aria-busy','true');
     return;
   }
@@ -961,7 +978,7 @@ function toggleDensity(){
   if(!g) return;
   const compact=g.classList.toggle("compact");
   try{ localStorage.setItem("wb_density", compact?"compact":"normal"); }catch(e){}
-  if(btn){btn.textContent=compact?"常规视图":"紧凑视图";btn.setAttribute("aria-pressed",compact?"true":"false");}
+  if(btn){btn.innerHTML='<span data-i18n="'+(compact?"comfortable":"compact")+'">'+wbT(compact?"comfortable":"compact")+'</span>';btn.setAttribute("aria-pressed",compact?"true":"false");}
 }
 function restoreDensity(){
   let compact=false;
@@ -970,7 +987,7 @@ function restoreDensity(){
   const g=document.getElementById("grid");
   const btn=document.getElementById("densityBtn");
   if(g) g.classList.add("compact");
-  if(btn){btn.textContent="常规视图";btn.setAttribute("aria-pressed","true");}
+  if(btn){btn.innerHTML='<span data-i18n="comfortable">'+wbT("comfortable")+'</span>';btn.setAttribute("aria-pressed","true");}
 }
 let currentFilter="all";
 let currentSearch="";

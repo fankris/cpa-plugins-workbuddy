@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<meta name="wb-management-base" content="__WB_MANAGEMENT_BASE__">
+<meta name="wb-resource-base" content="__WB_RESOURCE_BASE__">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WorkBuddy 面板</title>
 <style>
@@ -427,88 +429,89 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="brand-mark" aria-hidden="true">WB</div>
       <div class="brand-copy">
         <h1>WorkBuddy</h1>
-        <div class="sub">账号、积分与自动化的一站式控制台</div>
+        <div class="sub"><span data-i18n="subtitle">账号、积分与自动化的一站式控制台</span></div>
       </div>
     </div>
     <div class="hd-actions">
-      <button type="button" class="sec" id="importBtn" onclick="openImportModal()">导入凭证</button>
-      <button type="button" id="refreshBtn" onclick="load(true,this)">刷新数据</button>
+      <button type="button" class="sec" id="importBtn" onclick="openImportModal()"><span data-i18n="import">导入凭证</span></button>
+      <button type="button" id="refreshBtn" onclick="load(true,this)"><span data-i18n="refresh">刷新数据</span></button>
     </div>
   </header>
 
   <div id="authBox" class="auth-box" style="display:none">
-    <div class="auth-box-copy">需要 CPA 管理密钥才能读取账号数据。从 CPA 主面板或 Manager Plus 嵌入时会自动获取。遇到认证失败时请勿连续重试，避免触发主机限流。</div>
+    <div class="auth-box-copy" data-i18n="authHint">需要 CPA 管理密钥才能读取账号数据。从 CPA 主面板或 Manager Plus 嵌入时会自动获取。遇到认证失败时请勿连续重试，避免触发主机限流。</div>
     <div class="auth-form">
-      <label class="sr-only" for="keyInput">CPA 管理密钥</label>
-      <input id="keyInput" type="password" placeholder="输入 CPA 管理密钥" autocomplete="current-password" class="field-input">
-      <button type="button" onclick="saveKey()">连接</button>
+      <label class="sr-only" for="keyInput"><span data-i18n="managementKey">CPA 管理密钥</span></label>
+      <input id="keyInput" type="password" placeholder="输入 CPA 管理密钥" data-i18n-placeholder="keyPlaceholder" autocomplete="current-password" class="field-input">
+      <button type="button" onclick="saveKey()"><span data-i18n="connect">连接</span></button>
     </div>
   </div>
 
-  <nav class="workspace-nav" role="tablist" aria-label="WorkBuddy 工作区">
-    <button type="button" id="workspaceAccountsTab" class="workspace-tab active" role="tab" aria-selected="true" aria-controls="accountsView" tabindex="0" data-workspace="accounts" onclick="switchWorkspace('accounts')"><span aria-hidden="true">▦</span>账号总览</button>
-    <button type="button" id="workspaceModelsTab" class="workspace-tab" role="tab" aria-selected="false" aria-controls="settingsModels" tabindex="-1" data-workspace="models" onclick="switchWorkspace('models')"><span aria-hidden="true">◈</span>模型管理 <span id="settingsDisabledCount" class="workspace-tab-count">0</span></button>
-    <button type="button" id="workspaceAutomationTab" class="workspace-tab" role="tab" aria-selected="false" aria-controls="settingsAutomation" tabindex="-1" data-workspace="automation" onclick="switchWorkspace('automation')"><span aria-hidden="true">⚙</span>自动化</button>
+  <div id="languageSyncNotice" class="sub" role="status" data-i18n="syncUnavailable" hidden></div>
+  <nav class="workspace-nav" role="tablist" aria-label="WorkBuddy 工作区" data-i18n-aria-label="workspace">
+    <button type="button" id="workspaceAccountsTab" class="workspace-tab active" role="tab" aria-selected="true" aria-controls="accountsView" tabindex="0" data-workspace="accounts" onclick="switchWorkspace('accounts')"><span aria-hidden="true">▦</span><span data-i18n="accounts">账号总览</span></button>
+    <button type="button" id="workspaceModelsTab" class="workspace-tab" role="tab" aria-selected="false" aria-controls="settingsModels" tabindex="-1" data-workspace="models" onclick="switchWorkspace('models')"><span aria-hidden="true">◈</span><span data-i18n="models">模型管理</span> <span id="settingsDisabledCount" class="workspace-tab-count">0</span></button>
+    <button type="button" id="workspaceAutomationTab" class="workspace-tab" role="tab" aria-selected="false" aria-controls="settingsAutomation" tabindex="-1" data-workspace="automation" onclick="switchWorkspace('automation')"><span aria-hidden="true">⚙</span><span data-i18n="automation">自动化</span></button>
   </nav>
 
   <main class="workspace-main">
     <section id="accountsView" class="workspace-view" role="tabpanel" aria-labelledby="workspaceAccountsTab" data-workspace-panel="accounts">
       <div class="section-heading">
-        <div><p class="eyebrow">ACCOUNTS</p><h2>账号总览</h2><p>查看账号积分、每日免费额度及近期状态。</p></div>
+        <div><p class="eyebrow">ACCOUNTS</p><h2><span data-i18n="accounts">账号总览</span></h2><p><span data-i18n="accountsHint">查看账号积分、每日免费额度及近期状态。</span></p></div>
         <div id="svtime" class="section-meta" aria-live="polite"></div>
       </div>
       <div class="summary card" id="summaryBox" style="display:none"></div>
       <div class="account-console">
         <div class="account-console-top">
-          <div class="filter-bar" id="filterBar" role="group" aria-label="账号筛选">
-            <button type="button" class="ftag active" data-region="all" aria-pressed="true" onclick="filterRegion('all',this)">全部 <span class="cnt" id="cntAll">0</span></button>
+          <div class="filter-bar" id="filterBar" role="group" aria-label="账号筛选" data-i18n-aria-label="accountFilters">
+            <button type="button" class="ftag active" data-region="all" aria-pressed="true" onclick="filterRegion('all',this)"><span data-i18n="all">全部</span> <span class="cnt" id="cntAll">0</span></button>
             <button type="button" class="ftag" data-region="cn" aria-pressed="false" onclick="filterRegion('cn',this)">CN <span class="cnt" id="cntCn">0</span></button>
             <button type="button" class="ftag" data-region="intl" aria-pressed="false" onclick="filterRegion('intl',this)">Intl <span class="cnt" id="cntIntl">0</span></button>
-            <button type="button" class="ftag" data-region="exhausted" aria-pressed="false" onclick="filterRegion('exhausted',this)">耗尽 <span class="cnt" id="cntExhausted">0</span></button>
+            <button type="button" class="ftag" data-region="exhausted" aria-pressed="false" onclick="filterRegion('exhausted',this)"><span data-i18n="exhausted">耗尽</span> <span class="cnt" id="cntExhausted">0</span></button>
           </div>
           <label class="account-search">
-            <span class="sr-only">搜索账号名称、邮箱或 UID</span><span class="search-mark" aria-hidden="true">⌕</span>
-            <input id="accountSearch" class="field-input" type="search" placeholder="搜索名称、邮箱或 UID" oninput="filterAccounts()" autocomplete="off">
+            <span class="sr-only"><span data-i18n="searchAccountsLabel">搜索账号名称、邮箱或 UID</span></span><span class="search-mark" aria-hidden="true">⌕</span>
+            <input id="accountSearch" class="field-input" type="search" placeholder="搜索名称、邮箱或 UID" data-i18n-placeholder="searchAccounts" oninput="filterAccounts()" autocomplete="off">
           </label>
         </div>
         <div class="account-actions">
-          <div class="bulk-group"><span class="bulk-label">批量操作</span>
+          <div class="bulk-group"><span class="bulk-label"><span data-i18n="bulk">批量操作</span></span>
             <button type="button" class="sec" onclick="checkinAll(this)">全部签到</button>
             <button type="button" class="sec" onclick="claimTrialAll(this)" title="仅符合条件的账号可领取一次性专家加油包">批量领试用</button>
           </div>
-          <button type="button" class="sec" id="densityBtn" onclick="toggleDensity()" title="切换卡片密度" aria-pressed="false">紧凑视图</button>
+          <button type="button" class="sec" id="densityBtn" onclick="toggleDensity()" title="切换卡片密度" data-i18n-title="density" aria-pressed="false"><span data-i18n="compact">紧凑视图</span></button>
         </div>
       </div>
       <div id="staleNotice" class="stale-notice" role="status" aria-live="polite" hidden></div>
-      <div id="grid" class="grid" aria-live="polite"><div class="loading">正在载入账号…</div></div>
-      <div id="accountEmptyState" class="empty-state" hidden><strong>没有匹配的账号</strong><span>试试调整区域筛选或搜索词。</span></div>
+      <div id="grid" class="grid" aria-live="polite"><div class="loading"><span data-i18n="loadingAccounts">正在载入账号…</span></div></div>
+      <div id="accountEmptyState" class="empty-state" hidden><strong><span data-i18n="noAccounts">没有匹配的账号</span></strong><span><span data-i18n="filterHint">试试调整区域筛选或搜索词。</span></span></div>
     </section>
 
     <section id="settingsModels" class="workspace-view workspace-settings settings-pane" role="tabpanel" aria-labelledby="workspaceModelsTab" data-workspace-panel="models" hidden>
       <div class="section-heading">
-        <div><p class="eyebrow">MODEL ACCESS</p><h2>全局模型管理</h2><p>统一控制所有 WorkBuddy 账号可使用的模型。</p></div>
-        <button type="button" class="sec" id="modelRefreshBtn" onclick="loadGlobalModelCatalog(this,true)">刷新目录</button>
+        <div><p class="eyebrow">MODEL ACCESS</p><h2><span data-i18n="globalModels">全局模型管理</span></h2><p><span data-i18n="globalModelsHint">统一控制所有 WorkBuddy 账号可使用的模型。</span></p></div>
+        <button type="button" class="sec" id="modelRefreshBtn" onclick="loadGlobalModelCatalog(this,true)"><span data-i18n="refreshCatalog">刷新目录</span></button>
       </div>
       <p class="hint settings-hint">默认模型关闭。只有加入启用列表且未在禁用列表中的模型才会开放，禁用优先。列表中的积分/百万 tokens 为按账号额度估算，不用于结算。</p>
       <div class="model-settings-toolbar">
-        <label class="model-settings-search"><span class="sr-only">搜索模型名称或 ID</span><input id="modelSettingsSearch" class="field-input" type="search" placeholder="搜索模型名称或 ID" oninput="filterGlobalModels()"></label>
-        <label class="sr-only" for="modelSettingsFilter">模型状态筛选</label>
-        <select id="modelSettingsFilter" class="field-input model-settings-filter" aria-label="模型状态筛选" onchange="filterGlobalModels()">
-          <option value="all">全部模型</option><option value="enabled">仅启用</option><option value="disabled">仅禁用</option>
+        <label class="model-settings-search"><span class="sr-only"><span data-i18n="searchModels">搜索模型名称或 ID</span></span><input id="modelSettingsSearch" class="field-input" type="search" placeholder="搜索模型名称或 ID" data-i18n-placeholder="searchModels" oninput="filterGlobalModels()"></label>
+        <label class="sr-only" for="modelSettingsFilter"><span data-i18n="modelFilter">模型状态筛选</span></label>
+        <select id="modelSettingsFilter" class="field-input model-settings-filter" aria-label="模型状态筛选" data-i18n-aria-label="modelFilter" onchange="filterGlobalModels()">
+          <option value="all" data-i18n="allModels">全部模型</option><option value="enabled" data-i18n="enabledOnly">仅启用</option><option value="disabled" data-i18n="disabledOnly">仅禁用</option>
         </select>
       </div>
       <div id="modelSettingsSummary" class="model-settings-summary" aria-live="polite">打开模型管理后载入模型目录</div>
       <div id="modelSettingsStatus" class="hint settings-status" aria-live="polite"></div>
-      <div id="globalModelsBody" class="model-settings-list"><div class="loading">模型目录尚未载入</div></div>
+      <div id="globalModelsBody" class="model-settings-list"><div class="loading"><span data-i18n="catalogPending">模型目录尚未载入</span></div></div>
     </section>
 
     <section id="settingsAutomation" class="workspace-view workspace-settings settings-pane" role="tabpanel" aria-labelledby="workspaceAutomationTab" data-workspace-panel="automation" hidden>
       <div class="section-heading">
-        <div><p class="eyebrow">AUTOMATION</p><h2>自动化与任务</h2><p>管理定时签到、成长任务、旅行与令牌保活。</p></div>
-        <button type="button" class="sec" id="settingsReloadBtn" onclick="reloadSettings()">重新载入</button>
+        <div><p class="eyebrow">AUTOMATION</p><h2><span data-i18n="tasksAutomation">自动化与任务</span></h2><p>管理定时签到、成长任务、旅行与令牌保活。</p></div>
+        <button type="button" class="sec" id="settingsReloadBtn" onclick="reloadSettings()"><span data-i18n="reload">重新载入</span></button>
       </div>
       <p class="hint settings-hint">保存后 CPA 会异步重新应用配置。尚未写入配置的自动化开关按插件默认状态展示；单纯打开此页不会修改配置文件。</p>
-      <div id="settingsBody" class="settings-grid"><div class="loading">打开自动化页后载入配置</div></div>
+      <div id="settingsBody" class="settings-grid"><div class="loading"><span data-i18n="automationPending">打开自动化页后载入配置</span></div></div>
       <div id="settingsStatus" class="hint settings-status" aria-live="polite"></div>
     </section>
   </main>
@@ -516,35 +519,36 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 <div class="modal-mask" id="importModal" onclick="onImportMaskClick(event)">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="importModalTitle" tabindex="-1">
-    <div class="modal-hd"><h2 id="importModalTitle">导入凭证 JSON</h2><button type="button" class="modal-x" onclick="closeImportModal()" aria-label="关闭">×</button></div>
+    <div class="modal-hd"><h2 id="importModalTitle"><span data-i18n="importJSON">导入凭证 JSON</span></h2><button type="button" class="modal-x" onclick="closeImportModal()" aria-label="关闭" data-i18n-aria-label="close">×</button></div>
     <div class="modal-bd">
       <p class="hint">支持 nested <code>{"auth":{...},"account":{...}}</code> 或 flat <code>{"accessToken":...}</code>。按服务域落盘为 <code>workbuddy-CN-&lt;uid&gt;.json</code>、<code>workbuddy-intl-&lt;uid&gt;.json</code> 或旧服务 <code>workbuddy-Global-&lt;uid&gt;.json</code>（Global 账号显示在 Intl）。</p>
-      <label class="sr-only" for="importRaw">WorkBuddy 凭证 JSON</label><textarea id="importRaw" rows="8" placeholder="粘贴 WorkBuddy / CodeBuddy 凭证 JSON"></textarea>
+      <label class="sr-only" for="importRaw"><span data-i18n="credentialJSON">WorkBuddy 凭证 JSON</span></label><textarea id="importRaw" rows="8" placeholder="粘贴 WorkBuddy / CodeBuddy 凭证 JSON" data-i18n-placeholder="pasteJSON"></textarea>
     </div>
-    <div class="modal-ft"><button type="button" class="sec" onclick="closeImportModal()">取消</button><button type="button" onclick="importAuth(this)">导入并保存</button></div>
+    <div class="modal-ft"><button type="button" class="sec" onclick="closeImportModal()"><span data-i18n="cancel">取消</span></button><button type="button" onclick="importAuth(this)"><span data-i18n="importSave">导入并保存</span></button></div>
   </div>
 </div>
 <div class="modal-mask" id="modelsModal" onclick="onModelsMaskClick(event)">
   <div class="modal models-browser-modal" role="dialog" aria-modal="true" aria-labelledby="modelsModalTitle" tabindex="-1">
-    <div class="modal-hd"><h2 id="modelsModalTitle">支持的模型</h2><button type="button" class="modal-x" onclick="closeModelsModal()" aria-label="关闭">×</button></div>
+    <div class="modal-hd"><h2 id="modelsModalTitle">支持的模型</h2><button type="button" class="modal-x" onclick="closeModelsModal()" aria-label="关闭" data-i18n-aria-label="close">×</button></div>
     <div class="modal-bd">
       <p class="hint models-modal-hint">模型列表与 CPA 发现流程一致，按账号和区域展示；重新获取会绕过 5 分钟缓存。全局启用状态在「模型管理」工作区调整。</p>
-      <div id="modelsBody" class="loading" aria-live="polite">加载中…</div>
+      <div id="modelsBody" class="loading" aria-live="polite"><span data-i18n="loading">加载中…</span></div>
     </div>
-    <div class="modal-ft"><button type="button" class="sec" onclick="closeModelsModal()">关闭</button><button type="button" class="sec" id="modelsRefreshBtn" onclick="refreshModels(currentModelsAuth,this)">重新获取</button></div>
+    <div class="modal-ft"><button type="button" class="sec" onclick="closeModelsModal()"><span data-i18n="close">关闭</span></button><button type="button" class="sec" id="modelsRefreshBtn" onclick="refreshModels(currentModelsAuth,this)"><span data-i18n="refreshModels">重新获取</span></button></div>
   </div>
 </div>
 <div class="modal-mask" id="tasksModal" onclick="onTasksMaskClick(event)">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tasksModalTitle" tabindex="-1">
-    <div class="modal-hd"><h2 id="tasksModalTitle">成长任务</h2><button type="button" class="modal-x" onclick="closeTasksModal()" aria-label="关闭">×</button></div>
+    <div class="modal-hd"><h2 id="tasksModalTitle">成长任务</h2><button type="button" class="modal-x" onclick="closeTasksModal()" aria-label="关闭" data-i18n-aria-label="close">×</button></div>
     <div class="modal-bd">
       <p class="hint" id="tasksHint">仅 CN 账号支持成长任务。任务状态来自 WorkBuddy 上游，领取操作不会切换 CPA 当前账号。</p>
-      <div id="tasksBody" class="loading" aria-live="polite">加载中…</div>
+      <div id="tasksBody" class="loading" aria-live="polite"><span data-i18n="loading">加载中…</span></div>
     </div>
-    <div class="modal-ft"><button type="button" class="sec" onclick="closeTasksModal()">关闭</button><button type="button" class="sec" id="tasksRefreshBtn" onclick="loadTasks(currentTaskAuth,true)">刷新任务</button><button type="button" class="sec" id="tasksTravelBtn" onclick="runTravel(currentTaskAuth,this)">猫猫旅行</button><button type="button" id="tasksLightBtn" onclick="lightAllTasks(currentTaskAuth,this)">一键点亮</button><button type="button" class="sec" id="tasksAcceptAllBtn" onclick="acceptAllTasks(currentTaskAuth,this)">仅接受</button></div>
+    <div class="modal-ft"><button type="button" class="sec" onclick="closeTasksModal()"><span data-i18n="close">关闭</span></button><button type="button" class="sec" id="tasksRefreshBtn" onclick="loadTasks(currentTaskAuth,true)"><span data-i18n="refreshTasks">刷新任务</span></button><button type="button" class="sec" id="tasksTravelBtn" onclick="runTravel(currentTaskAuth,this)">猫猫旅行</button><button type="button" id="tasksLightBtn" onclick="lightAllTasks(currentTaskAuth,this)">一键点亮</button><button type="button" class="sec" id="tasksAcceptAllBtn" onclick="acceptAllTasks(currentTaskAuth,this)">仅接受</button></div>
   </div>
 </div>
-<div class="toasts" id="toasts" role="region" aria-label="通知" aria-live="polite" aria-relevant="additions"></div>
+<div class="toasts" id="toasts" role="region" aria-label="通知" data-i18n-aria-label="notifications" aria-live="polite" aria-relevant="additions"></div>
+<script src="panel-i18n.js"></script>
 <script src="panel.js"></script>
 </body>
 </html>

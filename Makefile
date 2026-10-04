@@ -2,6 +2,7 @@
 
 GO ?= go
 VERSION ?= $(shell cat VERSION 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo "dev")
+RELEASE_TARGETS ?= linux/amd64 linux/arm64
 TAG_VERSION = $(if $(filter v%,$(VERSION)),$(VERSION),v$(VERSION))
 LDFLAGS := -X main.version=$(VERSION)
 
@@ -29,17 +30,18 @@ clean:
 # Cross-compile for all supported platforms (requires cross C toolchains).
 # On a Linux host without osxcross, only linux/* targets will succeed.
 release: clean
-	@mkdir -p dist
-	@for target in linux/amd64 linux/arm64; do \
+	@set -eu; mkdir -p dist; \
+	for target in $(RELEASE_TARGETS); do \
 	  os=$${target%/*}; arch=$${target#*/}; \
 	  out=dist/workbuddy_$(VERSION)_$${os}_$${arch}; \
-	  mkdir -p $$out; \
-	  GOOS=$$os GOARCH=$$arch CGO_ENABLED=1 $(GO) build -buildmode=c-shared -ldflags "$(LDFLAGS)" -o $$out/workbuddy.so . 2>&1 | grep -v "cgo is not enabled" || true; \
-	  if [ -f $$out/workbuddy.so ]; then \
-	    cp README.md README_CN.md LICENSE $$out/; \
-	    cd dist && zip -qr workbuddy_$(VERSION)_$${os}_$${arch}.zip workbuddy_$(VERSION)_$${os}_$${arch} && cd ..; \
-	    echo "built $$out"; \
-	  fi; \
+	  mkdir -p "$$out"; \
+	  GOOS=$$os GOARCH=$$arch CGO_ENABLED=1 $(GO) build -buildmode=c-shared -ldflags "$(LDFLAGS)" -o "$$out/workbuddy.so" .; \
+	  test -s "$$out/workbuddy.so"; \
+	  cp README.md README_CN.md LICENSE "$$out/"; \
+	  if [ -d licenses ]; then cp -R licenses "$$out/"; fi; \
+	  if [ -f THIRD_PARTY_NOTICES.md ]; then cp THIRD_PARTY_NOTICES.md "$$out/"; fi; \
+	  (cd dist && zip -qr "workbuddy_$(VERSION)_$${os}_$${arch}.zip" "workbuddy_$(VERSION)_$${os}_$${arch}"); \
+	  echo "built $$out"; \
 	done
 
 # Tag a new release (default: VERSION file; override with VERSION=...).

@@ -98,8 +98,8 @@ func TestPanelMenuAndJSAreRegistered(t *testing.T) {
 	if foundLegacyPanelRoute {
 		t.Error("the old /plugins/workbuddy/panel menu route must be removed")
 	}
-	if len(reg.Resources) != 2 {
-		t.Errorf("panel resources = %#v, want /panel menu and /panel.js script", reg.Resources)
+	if len(reg.Resources) != 3 {
+		t.Errorf("panel resources = %#v, want /panel menu, /panel.js and /panel-i18n.js scripts", reg.Resources)
 	}
 	if !foundPanelMenu {
 		t.Error("WorkBuddy menu must point to the new /panel resource route")
@@ -115,6 +115,7 @@ func TestManagementServesPanelAssets(t *testing.T) {
 	for _, tc := range []struct{ path, wantType string }{
 		{"/v0/resource/plugins/workbuddy/panel", "text/html"},
 		{"/v0/resource/plugins/workbuddy/panel.js", "javascript"},
+		{"/v0/resource/plugins/workbuddy/panel-i18n.js", "javascript"},
 	} {
 		req := pluginapi.ManagementRequest{Method: http.MethodGet, Path: tc.path}
 		raw, err := handleManagement(mustJSON(req))

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -62,7 +63,18 @@ var hostHTTPTestOverride func(*http.Request) (*hostHTTPResponse, error)
 func installHostHTTPTestDirect() func() {
 	old := hostHTTPTestOverride
 	hostHTTPTestOverride = func(req *http.Request) (*hostHTTPResponse, error) {
-		resp, err := sharedHTTPClient().Do(req)
+		// Test-only transport must never send fixture credentials to real services.
+		if !testLoopbackRequest(req) {
+			return nil, fmt.Errorf("test transport forbids non-loopback requests")
+		}
+		client := *sharedHTTPClient()
+		client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+			if len(via) >= 10 || !testLoopbackRequest(next) {
+				return fmt.Errorf("test transport forbids redirect")
+			}
+			return nil
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -74,6 +86,15 @@ func installHostHTTPTestDirect() func() {
 		return &hostHTTPResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: body}, nil
 	}
 	return func() { hostHTTPTestOverride = old }
+}
+
+// Used exclusively by installHostHTTPTestDirect; production uses host.http.
+func testLoopbackRequest(req *http.Request) bool {
+	if req == nil || req.URL == nil {
+		return false
+	}
+	ip := net.ParseIP(req.URL.Hostname())
+	return ip != nil && ip.IsLoopback()
 }
 
 type hostCallbackIDContextKey struct{}

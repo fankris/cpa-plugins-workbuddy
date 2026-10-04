@@ -132,7 +132,7 @@ func loadedManagementBasePath() string {
 }
 
 func setManagementBasePath(p string) {
-	p = strings.TrimRight(strings.TrimSpace(p), "/")
+	p = cleanHostPath(p)
 	if p == "" {
 		return
 	}
@@ -172,6 +172,7 @@ func managementRegistration() managementRegistrationResponse {
 		Resources: []resourceRoute{
 			{Path: "/panel", Menu: "WorkBuddy", Description: "WorkBuddy dashboard: credits, check-in, plan, import."},
 			{Path: "/panel.js", Description: "WorkBuddy panel script."},
+			{Path: "/panel-i18n.js", Description: "WorkBuddy language resources."},
 		},
 	}
 }
@@ -188,11 +189,15 @@ func handleManagement(raw []byte) ([]byte, error) {
 
 	// Browser UI resource routes (unauthenticated). The panel shell and its
 	// script are served here; each asset carries its own content type.
-	resPrefix := "/v0/resource/plugins/" + providerName
-	if req.Method == http.MethodGet && strings.HasPrefix(path, resPrefix) {
+	resPrefix := loadedResourceBasePath()
+	if req.Method == http.MethodGet && (path == resPrefix || strings.HasPrefix(path, resPrefix+"/")) {
 		sub := strings.TrimPrefix(path, resPrefix)
 		asset := servePanel(sub)
-		return okEnvelope(mgmtAssetResponse(asset.contentType, asset.body))
+		response := mgmtAssetResponse(asset.contentType, asset.body)
+		if asset.statusCode != 0 {
+			response.StatusCode = asset.statusCode
+		}
+		return okEnvelope(response)
 	}
 
 	// Rate limit for mutating endpoints (v0.6.31, limits reworked v0.9.25).

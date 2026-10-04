@@ -1,0 +1,39 @@
+--- FAIL: TestBillingHeaders_IntlRealm (0.05s)
+    billing_intl_test.go:63: billingCallOnce: Post "https://www.codebuddy.ai/probe": EOF
+2026/10/04 17:58:22 workbuddy: config checkin_auto=true lifecycle_auto=false keepalive=true growth_auto=true travel_auto=true region=intl platform=ide scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:22 adopt: host auth list failed: host API unavailable
+2026/10/04 17:58:22 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=cn platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:22 models: custom static model "invalid-channel" has invalid channel "mars"; ignored
+2026/10/04 17:58:22 models: service=cn region=cn discovery ok via cn catalog: 2 model(s)
+2026/10/04 17:58:22 models: promoted 2 upstream model(s) not in cli agent list: deepseek-v4.1-flash, glm-5.3
+2026/10/04 17:58:22 models: realm=cn discovery failed (http 429 from models: no usable contextWindow) — serving static (discovery failed) (18 model(s)) until next successful discovery
+2026/10/04 17:58:22 workbuddy: config checkin_auto=false lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=cn platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:22 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=intl platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:22 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=cn platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:22 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=cn platform=CLI scheduler=credits usage_report=host (由 CPA 上报)
+2026/10/04 17:58:22 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=cn platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:25 workbuddy: night growth [u-growth] black_cat claim reached=1 failed=0 credit=+10
+2026/10/04 17:58:25 workbuddy: night growth [u-growth] black_cat lit+claim reached=1 failed=0 credit=+10
+2026/10/04 17:58:40 workbuddy: night growth [u-growth] black_cat reported, progress 2/3 not yet reached
+2026/10/04 17:58:40 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=false travel_auto=true region=cn platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:40 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=cn platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:40 workbuddy: 5 consecutive requests did not succeed — no workbuddy credential may be able to serve traffic
+2026/10/04 17:58:40 workbuddy: 5 consecutive requests did not succeed — no workbuddy credential may be able to serve traffic
+2026/10/04 17:58:40 workbuddy: bridge down
+2026/10/04 17:58:40 workbuddy: formatted 42
+2026/10/04 17:58:41 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=intl platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:41 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=cn platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:41 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=intl platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:41 models: realm=cn discovery failed (CPA host.http bridge unavailable) — serving static (discovery failed) (18 model(s)) until next successful discovery
+2026/10/04 17:58:41 models: realm=global discovery failed (CPA host.http bridge unavailable) — serving static (discovery failed) (17 model(s)) until next successful discovery
+2026/10/04 17:58:41 workbuddy: config checkin_auto=true lifecycle_auto=true keepalive=true growth_auto=true travel_auto=true region=cn platform=CLI scheduler=builtin usage_report=host (由 CPA 上报)
+2026/10/04 17:58:41 models: service=global region=intl discovery ok via global catalog: 4 model(s)
+2026/10/04 17:58:41 models: service=global region=intl discovery ok via global catalog: 2 model(s)
+2026/10/04 17:58:41 models: promoted 2 upstream model(s) not in cli agent list: deepseek-v4.1-flash, ide-only-beta
+2026/10/04 17:58:41 models: promoted 2 upstream model(s) not in cli agent list: deepseek-v4-flash, glm-5.2
+2026/10/04 17:58:41 models: realm=cn discovery failed (models API status 403) — serving static (discovery failed) (18 model(s)) until next successful discovery
+2026/10/04 17:58:41 models: service=cn region=cn discovery ok via cn catalog: 2 model(s)
+2026/10/04 17:58:41 models: realm=cn discovery failed (models API status 500) — serving static (discovery failed) (18 model(s)) until next successful discovery
+FAIL
+FAIL	github.com/fankris/cpa-plugins-workbuddy	23.046s
+FAIL

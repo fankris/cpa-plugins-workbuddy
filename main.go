@@ -336,6 +336,9 @@ func handleMethod(method string, request []byte) ([]byte, error) {
 			if regReq.BasePath != "" {
 				setManagementBasePath(regReq.BasePath)
 			}
+			if regReq.ResourceBasePath != "" {
+				setResourceBasePath(regReq.ResourceBasePath)
+			}
 		}
 		return okEnvelope(managementRegistration())
 	case pluginabi.MethodManagementHandle:
@@ -417,7 +420,7 @@ type registrationCapability struct {
 }
 
 // version is injected at build time via -ldflags "-X main.version=...".
-var version = "v8.0.13-1.0.41"
+var version = "v8.0.13-1.0.42"
 
 func wbRegistration() registration {
 	return registration{
@@ -426,7 +429,7 @@ func wbRegistration() registration {
 			Name:             "WorkBuddy",
 			Version:          version,
 			Author:           "Aiseek",
-			GitHubRepository: "https://github.com/fankris/cpa-plugins-store",
+			GitHubRepository: "https://github.com/fankris/cpa-plugins-workbuddy",
 			Logo:             pluginLogoURL,
 			// The native config surface deliberately contains only login selection.
 			// Advanced settings (including model catalogs and global disables)
