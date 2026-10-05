@@ -92,11 +92,11 @@ func TestPanelMenuAndJSAreRegistered(t *testing.T) {
 			foundJS = true
 		}
 	}
-	if menuCount != 1 {
-		t.Errorf("host menu count = %d, want exactly one", menuCount)
+	if !foundLegacyPanelRoute {
+		t.Error("the legacy /plugins/workbuddy/panel route must be kept for backward menu discovery")
 	}
-	if foundLegacyPanelRoute {
-		t.Error("the old /plugins/workbuddy/panel menu route must be removed")
+	if !foundPanelMenu {
+		t.Error("the /panel resource route must have Menu set for modern hosts")
 	}
 	if len(reg.Resources) != 4 {
 		t.Errorf("panel resources = %#v, want /panel menu, /panel.js /panel-i18n.js compatibility asset and /panel.css", reg.Resources)
