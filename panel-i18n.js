@@ -129,6 +129,8 @@
       doc.documentElement.lang = language;
       doc.documentElement.dataset.languageSource = next.source;
       translate(doc);
+      const sel = doc.getElementById("langSelect");
+      if (sel && sel.value !== language) sel.value = language;
       const notice = doc.getElementById("languageSyncNotice");
       if (notice) notice.hidden = next.source !== "host-unavailable";
     }

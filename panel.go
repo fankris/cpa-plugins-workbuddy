@@ -386,16 +386,20 @@ type panelAsset struct {
 // its script are the only servable files; anything else 404s so the route
 // cannot be used to probe the plugin's own file set.
 func servePanel(sub string) panelAsset {
-	switch sub {
-	case "", "/", "/panel", "/panel.html":
-		return panelAsset{contentType: "text/html; charset=utf-8", body: localizedPanelHTML()}
-	case "/panel-i18n.js":
-		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelI18N}
-	case "/panel.js":
-		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelJS}
-	default:
-		return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}
+	if idx := strings.Index(sub, "?"); idx != -1 {
+		sub = sub[:idx]
 	}
+	sub = strings.TrimSpace(sub)
+	if sub == "" || sub == "/" || sub == "/panel" || sub == "/panel.html" || strings.HasSuffix(sub, "/panel") || strings.HasSuffix(sub, "/panel.html") {
+		return panelAsset{contentType: "text/html; charset=utf-8", body: localizedPanelHTML()}
+	}
+	if sub == "/panel-i18n.js" || strings.HasSuffix(sub, "/panel-i18n.js") {
+		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelI18N}
+	}
+	if sub == "/panel.js" || strings.HasSuffix(sub, "/panel.js") {
+		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelJS}
+	}
+	return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}
 }
 
 //go:embed panel.html
