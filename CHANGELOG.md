@@ -1,5 +1,14 @@
 # Changelog
 
+## v8.0.13-1.0.44 — 2026-10-05
+
+### Universal panel routing and host compatibility fix
+
+- Support universal asset dispatch across all routing schemes (`/v0/resource/plugins/workbuddy`, `/v0/management/plugins/workbuddy`, and `/plugins/workbuddy`) so panel HTML, scripts, and language resources reliably render across diverse CPA host deployments and reverse proxies.
+- Dual-track menu registration: maintain the modern CPA v8 `Resources` contract (`/panel` with menu) while retaining the legacy `Routes` menu declaration for full backward compatibility with older hosts.
+- Normalize management API subpaths (`/accounts`, `/credits`, etc.) so mutating and querying endpoints resolve regardless of gateway prefix stripping.
+- Serve panel assets with explicit `Cache-Control: no-cache, no-store, must-revalidate` to prevent stale webview cache issues.
+
 ## v8.0.13-1.0.43 — 2026-10-04
 
 ### Modern CPA Resources contract alignment
