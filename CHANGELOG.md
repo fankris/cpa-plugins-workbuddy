@@ -1,4 +1,52 @@
-# Independent rebuild — v8.0.15-1.0.45 (2026-10-05)
+# v8.0.15-2.0.0-rebuild.7
+
+- PC-specific compact summary/filter strip, aligned controls, desktop page-size selection and selection highlighting.
+- Two-column account inspector with previous/next account navigation.
+- Fix repeated same-account task shortcut clearing its own results.
+- 15 desktop browser scenarios; 62 browser scenarios total and 61 Node contracts.
+- Ten actual UI screenshots in offline HTML; one latest combined ZIP.
+
+# v8.0.15-2.0.0-rebuild.6
+
+- Viewport-bounded work surface, short mobile navigation and compact one-row metrics.
+- Mobile account cards with adaptive visible-row pagination, persistent actions and optional filters.
+- Compact model/task layouts; bounded dialog scrolling and context-specific non-overlapping feedback.
+- Fix same-account task reselection clearing the list; stabilize account selector component identity.
+- 17 new mobile checks; 47 total fixture-browser scenarios; retain one latest ZIP and illustrated HTML.
+
+# v8.0.15-2.0.0-rebuild.5
+
+- CPA-first account availability: unknown/error/disabled runtime cannot masquerade as active.
+- Native config edits bind identity when queued and verify touched fields after PUT; readback failure is unconfirmed, never auto-replayed.
+- New four-language confirmation warning; source-only workspace, no gateway or account-pool transplant.
+- 53 Node tests, 30 browser fixture checks plus insecure HTTP; see docs/ITERATION-5.md.
+
+# v8.0.15-2.0.0-rebuild.4
+
+- Restore legacy/custom-named native credential visibility without renaming or claiming foreign providers.
+- Preserve model callback scope, cancel retry waits, and classify upstream transient failures.
+- Coordinate successful same-key discoveries and restrict forced invalidation to the selected credential.
+- Report skipped/fallback discovery honestly in four-language UI.
+- New race, compiled ABI and browser regressions; see docs/ITERATION-4.md for exact evidence boundaries.
+
+# v8.0.15-2.0.0-rebuild.3
+
+- Rechecked official stable CPA 8.0.15 / CPAMC 1.25.3; ABI 1 / schema 6 unchanged.
+- Integrated host.http.operation_open/cancel; cancel pending headers and drain on quiesce without transport fallback.
+- Preserved callback scopes for synchronous executors, login and refresh.
+- Fixed late closer and read/close races; preserved final payload plus errors and removed recursive empty-chunk reads.
+- Added SDK regression, pinned official-source checks and actual-binary no-network C ABI probe.
+- Official SDK HTTP tests and current binary empty-host integration passed; real-account business E2E remains untested.
+
+# v8.0.15-2.0.0-rebuild.2
+
+- Native-page layout; removed duplicate header, command palette, dock and decorative footer.
+- Fixed all-mutation lock-up when randomUUID is absent; added actual plain-HTTP verification.
+- Added row actions, task context/filtering, readable run summary and persistent operation feedback.
+- Fixed 401 recovery, uncertain malformed mutation responses, active-view refresh and discovery readback.
+- See docs/ITERATION-2.md for evidence and untested real-account boundaries.
+
+# Independent rebuild — v8.0.15-2.0.0-rebuild.1 (2026-10-05)
 
 - Replaced the old panel with a Manager-led React/TypeScript four-workspace UI.
 - Pinned official CPA 8.0.15 SDK/schema 6 and tested real loading with CPAMC 1.25.3.

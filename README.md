@@ -1,12 +1,16 @@
-# WorkBuddy CPA plugin — Manager-led rebuild
+# WorkBuddy extension for CPA
 
-**Independent development build `v8.0.15-2.0.0-rebuild.1` · 2026-10-05**
+**Current source: `v8.0.15-2.0.0-rebuild.7` · 2026-10-05.** CPA is the host and authority; WorkBuddy Manager is a selective workflow reference, not the architecture to transplant.
 
-[完整中文说明](README_CN.md) · [Validation](docs/VALIDATION.md) · [Feature mapping](docs/FEATURE-MATRIX.md) · [Provenance](docs/PROVENANCE.json)
+Uses CPA 8.0.15 stable SDK (ABI 1 / schema 6), with CPAMC v1.25.3 as the UI contract reference. Preserves `/panel` and provider/auth identity. Delivery policy: keep one latest ZIP containing source, Linux amd64 plugin and offline HTML with actual UI screenshots. Temporary artifacts are cleaned after packaging. See [iteration 5](docs/ITERATION-7.md), [validation](docs/VALIDATION.md), and [ownership matrix](docs/FEATURE-MATRIX.md).
 
-Based on fankris/cpa-plugins-workbuddy, with a new React/TypeScript interface informed primarily by WorkBuddy Manager 1.0.79. This is not a Manager gateway/backend transplant, an official upstream release, or an endorsement by the referenced projects.
+## Mobile-first work surface
 
-Targets the verified stable CPA **8.0.15** SDK, ABI schema **6**; actually loaded and browser-tested with official CPA 8.0.15 and CPAMC **1.25.3**. Preserves the WorkBuddy provider/auth identity, menu and `/panel` resource. Included binary: **Linux amd64, glibc 2.34+ only**.
+Compact navigation and summary, always-visible search/actions/pagination, adaptive account cards, optional filters, and bounded dialogs. Desktop lists also use a viewport-bounded layout. See iteration 7 for measured sizes and limits.
+
+## Desktop refinement
+
+Compact actionable summaries, aligned row controls, desktop page sizes, and a two-column account inspector with previous/next navigation. Tested at 1024, 1366, 1440 and 1920px widths in four languages. Mobile behavior remains intact.
 
 ## Four workspaces
 
@@ -42,8 +46,9 @@ For fixture preview: `python3 tests/preview_server.py --port 8080`; then `node t
 
 ## Acceptance boundary
 
-Final Go race: **506 named tests/subtests**; Node: **28**; fixture browser: **12**; real official host/browser: **12**, all passed. Actual C ABI registration, routes, middleware, native config, remembered-key inheritance and native four-language iframe recreation were tested.
+Go race **533 PASS / 1 SKIP**, Node **61 PASS**, fixture browser **62 scenarios plus insecure HTTP**, compiled binary/mock-host ABI **8 groups PASS**. Official-host integration was not rerun; no real credentials were used. See [current validation](docs/ITERATION-7.md).
 
-**Real account inference, real credential refresh, rewards/check-in/trial/travel were not exercised.** Empty-host integration and fixture success are not real-account E2E acceptance. See `docs/VALIDATION.md` and `THIRD_PARTY_NOTICES.md`. Historical development notes are excluded from release archives.
 
-One optional wire-shape export helper was skipped because WORKBUDDY_WIRESHAPE_OUT was not set; it is not included in the 506 passes.
+## 最新交付规则 / Latest delivery
+
+参见 [DELIVERY.md](docs/DELIVERY.md)。`make release` 校验当前截图与二进制证据后生成一个 `workbuddy-latest.zip`；校验成功才替换旧包。单独 HTML 为 `deliverables/WorkBuddy-交付说明.html`。

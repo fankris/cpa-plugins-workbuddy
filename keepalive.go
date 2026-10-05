@@ -21,6 +21,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -70,9 +71,13 @@ func isSessionDeadError(msg string) bool {
 // business code, e.g. 12153 "Offline user session not found").
 //
 // v0.8.0: routed via host.http.do so request-log captures the call.
-func refreshCall(sa *storedAuth) (json.RawMessage, []byte, int, error) {
+func refreshCall(sa *storedAuth, contexts ...context.Context) (json.RawMessage, []byte, int, error) {
 	url := endpointTokenRefreshFor(sa)
-	req, err := http.NewRequest(http.MethodPost, url, nil)
+	ctx := pluginContext()
+	if len(contexts) > 0 && contexts[0] != nil {
+		ctx = contexts[0]
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
 	if err != nil {
 		return nil, nil, 0, err
 	}

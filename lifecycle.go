@@ -33,12 +33,14 @@ var (
 var errPluginQuiescing = fmt.Errorf("workbuddy plugin is quiescing")
 
 type pluginAsyncStream struct {
-	streamID  string
-	cancel    context.CancelFunc
-	closeOnce sync.Once
-	doneOnce  sync.Once
-	closerMu  sync.Mutex
-	closer    func()
+	streamID          string
+	cancel            context.CancelFunc
+	closeOnce         sync.Once
+	doneOnce          sync.Once
+	closerMu          sync.Mutex
+	closer            func()
+	upstreamClosed    bool
+	upstreamCloseOnce sync.Once
 }
 
 func pluginQuiescing() bool {
@@ -94,13 +96,15 @@ func (s *pluginAsyncStream) setCloser(closer func()) {
 		return
 	}
 	s.closerMu.Lock()
-	if s.closer == nil {
-		s.closer = closer
+	if s.closer != nil {
+		s.closerMu.Unlock()
+		return
 	}
-	quiescing := pluginQuiescingState
+	s.closer = closer
+	closed := s.upstreamClosed
 	s.closerMu.Unlock()
-	if quiescing {
-		closer()
+	if closed {
+		s.upstreamCloseOnce.Do(closer)
 	}
 }
 
@@ -109,10 +113,11 @@ func (s *pluginAsyncStream) closeUpstream() {
 		return
 	}
 	s.closerMu.Lock()
+	s.upstreamClosed = true
 	closer := s.closer
 	s.closerMu.Unlock()
 	if closer != nil {
-		closer()
+		s.upstreamCloseOnce.Do(closer)
 	}
 }
 

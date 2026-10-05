@@ -1,0 +1,689 @@
+{
+  "version": "v8.0.15-2.0.0-rebuild.6",
+  "date": "2026-10-05",
+  "go_race": {
+    "passed": 533,
+    "skipped": 1
+  },
+  "go_vet": "PASS",
+  "typescript": "PASS",
+  "frontend_build": "PASS",
+  "node_tests": 53,
+  "fixture_browser_scenarios": 47,
+  "new_mobile_scenarios": 17,
+  "insecure_http": "PASS",
+  "mobile_browser": {
+    "result": "PASS",
+    "checks": [
+      "320x568: bounded page, adaptive rows, all row actions and pagination visible",
+      "320px: pagination stays visible and next page renders within viewport",
+      "390x844: bounded page, adaptive rows, all row actions and pagination visible",
+      "390px: pagination stays visible and next page renders within viewport",
+      "430x932: bounded page, adaptive rows, all row actions and pagination visible",
+      "430px: pagination stays visible and next page renders within viewport",
+      "844x390: bounded page, adaptive rows, all row actions and pagination visible",
+      "844px: pagination stays visible and next page renders within viewport",
+      "filters expand on demand; active filter remains indicated",
+      "more actions accessible; import confirmation stays inside reduced-height viewport",
+      "mobile row mutation uses one CPA native request and updates status",
+      "account detail actions appear before long quota/runtime content",
+      "zh-CN: four sections fit mobile width; model limits and task action remain visible",
+      "zh-TW: four sections fit mobile width; model limits and task action remain visible",
+      "en: four sections fit mobile width; model limits and task action remain visible",
+      "ru: four sections fit mobile width; model limits and task action remain visible",
+      "same-origin iframe retains host toolbar clearance without pushing account actions offscreen"
+    ],
+    "measurements": [
+      {
+        "width": 320,
+        "height": 568,
+        "pageWidth": 320,
+        "pageHeight": 568,
+        "mainHeight": 568,
+        "mainScroll": 568,
+        "first": 238,
+        "rows": 2,
+        "footer": 528,
+        "viewportHeight": 243,
+        "viewportScroll": 243,
+        "actions": [
+          {
+            "x": 22,
+            "right": 110.65625,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 115.65625,
+            "right": 204.328125,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 209.328125,
+            "right": 298,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 157.5,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 162.5,
+            "right": 298,
+            "bottom": 467.09375,
+            "height": 42
+          }
+        ],
+        "nav": [
+          80.5,
+          153,
+          225.5,
+          298
+        ],
+        "embedded": false
+      },
+      {
+        "width": 320,
+        "height": 568,
+        "pageWidth": 320,
+        "pageHeight": 568,
+        "mainHeight": 568,
+        "mainScroll": 568,
+        "first": 238,
+        "rows": 2,
+        "footer": 528,
+        "viewportHeight": 243,
+        "viewportScroll": 243,
+        "actions": [
+          {
+            "x": 22,
+            "right": 110.65625,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 115.65625,
+            "right": 204.328125,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 209.328125,
+            "right": 298,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 157.5,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 162.5,
+            "right": 298,
+            "bottom": 467.09375,
+            "height": 42
+          }
+        ],
+        "nav": [
+          80.5,
+          153,
+          225.5,
+          298
+        ],
+        "embedded": false
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "pageWidth": 390,
+        "pageHeight": 844,
+        "mainHeight": 844,
+        "mainScroll": 844,
+        "first": 238,
+        "rows": 4,
+        "footer": 804,
+        "viewportHeight": 519,
+        "viewportScroll": 519,
+        "actions": [
+          {
+            "x": 22,
+            "right": 134,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 139,
+            "right": 251,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 256,
+            "right": 368,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 192.5,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 197.5,
+            "right": 368,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 134,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 139,
+            "right": 251,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 256,
+            "right": 368,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 192.5,
+            "bottom": 703.09375,
+            "height": 42
+          },
+          {
+            "x": 197.5,
+            "right": 368,
+            "bottom": 703.09375,
+            "height": 42
+          }
+        ],
+        "nav": [
+          98,
+          188,
+          278,
+          368
+        ],
+        "embedded": false
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "pageWidth": 390,
+        "pageHeight": 844,
+        "mainHeight": 844,
+        "mainScroll": 844,
+        "first": 238,
+        "rows": 4,
+        "footer": 804,
+        "viewportHeight": 519,
+        "viewportScroll": 519,
+        "actions": [
+          {
+            "x": 22,
+            "right": 192.5,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 197.5,
+            "right": 368,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 192.5,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 197.5,
+            "right": 368,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 134,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 139,
+            "right": 251,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 256,
+            "right": 368,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 134,
+            "bottom": 703.09375,
+            "height": 42
+          },
+          {
+            "x": 139,
+            "right": 251,
+            "bottom": 703.09375,
+            "height": 42
+          },
+          {
+            "x": 256,
+            "right": 368,
+            "bottom": 703.09375,
+            "height": 42
+          }
+        ],
+        "nav": [
+          98,
+          188,
+          278,
+          368
+        ],
+        "embedded": false
+      },
+      {
+        "width": 430,
+        "height": 932,
+        "pageWidth": 430,
+        "pageHeight": 932,
+        "mainHeight": 932,
+        "mainScroll": 932,
+        "first": 238,
+        "rows": 5,
+        "footer": 892,
+        "viewportHeight": 607,
+        "viewportScroll": 607,
+        "actions": [
+          {
+            "x": 22,
+            "right": 147.328125,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 152.328125,
+            "right": 277.671875,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 282.671875,
+            "right": 408,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 212.5,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 217.5,
+            "right": 408,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 147.328125,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 152.328125,
+            "right": 277.671875,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 282.671875,
+            "right": 408,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 212.5,
+            "bottom": 703.09375,
+            "height": 42
+          },
+          {
+            "x": 217.5,
+            "right": 408,
+            "bottom": 703.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 212.5,
+            "bottom": 821.09375,
+            "height": 42
+          },
+          {
+            "x": 217.5,
+            "right": 408,
+            "bottom": 821.09375,
+            "height": 42
+          }
+        ],
+        "nav": [
+          108,
+          208,
+          308,
+          408
+        ],
+        "embedded": false
+      },
+      {
+        "width": 430,
+        "height": 932,
+        "pageWidth": 430,
+        "pageHeight": 932,
+        "mainHeight": 932,
+        "mainScroll": 932,
+        "first": 238,
+        "rows": 5,
+        "footer": 892,
+        "viewportHeight": 607,
+        "viewportScroll": 607,
+        "actions": [
+          {
+            "x": 22,
+            "right": 212.5,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 217.5,
+            "right": 408,
+            "bottom": 349.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 147.328125,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 152.328125,
+            "right": 277.671875,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 282.671875,
+            "right": 408,
+            "bottom": 467.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 147.328125,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 152.328125,
+            "right": 277.671875,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 282.671875,
+            "right": 408,
+            "bottom": 585.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 147.328125,
+            "bottom": 703.09375,
+            "height": 42
+          },
+          {
+            "x": 152.328125,
+            "right": 277.671875,
+            "bottom": 703.09375,
+            "height": 42
+          },
+          {
+            "x": 282.671875,
+            "right": 408,
+            "bottom": 703.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 147.328125,
+            "bottom": 821.09375,
+            "height": 42
+          },
+          {
+            "x": 152.328125,
+            "right": 277.671875,
+            "bottom": 821.09375,
+            "height": 42
+          },
+          {
+            "x": 282.671875,
+            "right": 408,
+            "bottom": 821.09375,
+            "height": 42
+          }
+        ],
+        "nav": [
+          108,
+          208,
+          308,
+          408
+        ],
+        "embedded": false
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "pageWidth": 844,
+        "pageHeight": 390,
+        "mainHeight": 390,
+        "mainScroll": 390,
+        "first": 180,
+        "rows": 1,
+        "footer": 350,
+        "viewportHeight": 123,
+        "viewportScroll": 123,
+        "actions": [
+          {
+            "x": 22,
+            "right": 285.328125,
+            "bottom": 291.09375,
+            "height": 42
+          },
+          {
+            "x": 290.328125,
+            "right": 553.671875,
+            "bottom": 291.09375,
+            "height": 42
+          },
+          {
+            "x": 558.671875,
+            "right": 822,
+            "bottom": 291.09375,
+            "height": 42
+          }
+        ],
+        "nav": [
+          211.5,
+          415,
+          618.5,
+          822
+        ],
+        "embedded": false
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "pageWidth": 844,
+        "pageHeight": 390,
+        "mainHeight": 390,
+        "mainScroll": 390,
+        "first": 180,
+        "rows": 1,
+        "footer": 350,
+        "viewportHeight": 123,
+        "viewportScroll": 123,
+        "actions": [
+          {
+            "x": 22,
+            "right": 419.5,
+            "bottom": 291.09375,
+            "height": 42
+          },
+          {
+            "x": 424.5,
+            "right": 822,
+            "bottom": 291.09375,
+            "height": 42
+          }
+        ],
+        "nav": [
+          211.5,
+          415,
+          618.5,
+          822
+        ],
+        "embedded": false
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "pageWidth": 390,
+        "pageHeight": 844,
+        "mainHeight": 844,
+        "mainScroll": 844,
+        "first": 310,
+        "rows": 4,
+        "footer": 837,
+        "viewportHeight": 480,
+        "viewportScroll": 480,
+        "actions": [
+          {
+            "x": 22,
+            "right": 134,
+            "bottom": 421.09375,
+            "height": 42
+          },
+          {
+            "x": 139,
+            "right": 251,
+            "bottom": 421.09375,
+            "height": 42
+          },
+          {
+            "x": 256,
+            "right": 368,
+            "bottom": 421.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 192.5,
+            "bottom": 539.09375,
+            "height": 42
+          },
+          {
+            "x": 197.5,
+            "right": 368,
+            "bottom": 539.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 134,
+            "bottom": 657.09375,
+            "height": 42
+          },
+          {
+            "x": 139,
+            "right": 251,
+            "bottom": 657.09375,
+            "height": 42
+          },
+          {
+            "x": 256,
+            "right": 368,
+            "bottom": 657.09375,
+            "height": 42
+          },
+          {
+            "x": 22,
+            "right": 192.5,
+            "bottom": 775.09375,
+            "height": 42
+          },
+          {
+            "x": 197.5,
+            "right": 368,
+            "bottom": 775.09375,
+            "height": 42
+          }
+        ],
+        "nav": [
+          98,
+          188,
+          278,
+          368
+        ],
+        "embedded": true
+      }
+    ],
+    "pageErrors": [],
+    "fixtureOnly": true,
+    "hardwareKeyboardTested": false
+  },
+  "binary_probe": {
+    "result": "PASS",
+    "binary_sha256": "d3e569df028701f7547cb92c1635c380d1b003fa2fc30459830120fb4f96b2c9",
+    "checks": [
+      "actual release C ABI initialization and schema 6 registration",
+      "sync and streaming collection execute through owned host operations with callback scope",
+      "terminal upstream error remains an error across the compiled C boundary",
+      "native refresh preserves callback scope and leaves persistence/filename ownership to CPA",
+      "model.for_auth discovers with its own callback scope through compiled ABI",
+      "custom-named native credential is visible; forced model refresh retains management callback scope",
+      "compiled management response reports discovery failure with usable fallback, never false success",
+      "quiesce cancels a pending header request and drains callbacks without buffer leaks"
+    ],
+    "host": "C ABI mock; NO NETWORK",
+    "realCredentialsUsed": false,
+    "officialHost": false,
+    "callbackErrors": [],
+    "outstandingHostBuffers": 0
+  },
+  "official_host_tested_this_iteration": false,
+  "real_account_tested": false,
+  "raw_outputs_retained": false,
+  "delivery": "one latest ZIP and offline HTML with eight actual fixture UI screenshots"
+}

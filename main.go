@@ -232,7 +232,7 @@ func hostCall(method string, request []byte) ([]byte, error) {
 	if override := hostRPCTestOverride; override != nil {
 		return override(method, request)
 	}
-	allowCleanup := method == pluginabi.MethodHostStreamClose || method == pluginabi.MethodHostHTTPStreamClose
+	allowCleanup := method == pluginabi.MethodHostStreamClose || method == pluginabi.MethodHostHTTPStreamClose || method == pluginabi.MethodHostHTTPCancel
 	if !hostCallbackStart(allowCleanup) {
 		return nil, errPluginQuiescing
 	}
@@ -917,7 +917,7 @@ func toAuthDataOpts(sa *storedAuth, cr *creditsSummary, disabled bool) pluginapi
 // -----------------------------------------------------------------------------
 
 func handleExecExecute(raw []byte) ([]byte, error) {
-	var req pluginapi.ExecutorRequest
+	var req executorStreamRequest
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, err
 	}
@@ -937,7 +937,7 @@ func handleExecExecute(raw []byte) ([]byte, error) {
 	// prepareUpstreamBody does forceStream + normalizeTools + rewriteSystem +
 	// ensureSystemMessage + rewriteModel in ONE unmarshal/marshal pass.
 	body := prepareUpstreamBody(req.Payload, req.OriginalRequest, sa, upstreamModel)
-	httpReq, err := http.NewRequest(http.MethodPost, endpointChatFor(sa), bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(withHostCallbackID(pluginContext(), req.HostCallbackID), http.MethodPost, endpointChatFor(sa), bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -1007,7 +1007,7 @@ func handleExecStream(raw []byte) ([]byte, error) {
 
 	// No async stream id → fall back to synchronous chunk collection.
 	if req.StreamID == "" {
-		chunks, statusCode, errCollect := collectUpstreamStream(body, sa, sseFramed)
+		chunks, statusCode, errCollect := collectUpstreamStream(body, sa, sseFramed, withHostCallbackID(pluginContext(), req.HostCallbackID))
 		if errCollect != nil {
 			// Spec: executor.execute_stream errors carry the upstream status
 			// too (statusCode < 400 means a malformed stream, not an HTTP

@@ -1,14 +1,16 @@
-# WorkBuddy CPA 插件 · Manager 风格重构版
+# CPA 的 WorkBuddy 扩展插件
 
-**独立开发构建：`v8.0.15-2.0.0-rebuild.1` · 2026-10-05**
+**当前源码：`v8.0.15-2.0.0-rebuild.7` · 2026-10-05。** 一切以 CPA 为主体；WorkBuddy Manager 仅选择性参考业务流程和交互，不照搬其独立管理系统。
 
-基于 `fankris/cpa-plugins-workbuddy`，以 WorkBuddy Manager 的界面组织和交互为主重做前端，保留 WorkBuddy 协议适配与账号业务。不是在旧面板上追加说明，也不是把 Manager 独立网关装进 CPA。未发布官方 tag，不代表上游背书。
+使用官方稳定 CPA 8.0.15 SDK（ABI 1 / schema 6），管理界面对照 CPAMC v1.25.3。保留 provider/auth 身份与 `/panel`。保留最新源码，每轮只留一个最新 ZIP（源码 + Linux amd64 插件 + 含 UI 截图的离线 HTML），临时文件打包后清理；[本轮修复](docs/ITERATION-7.md)、[验证边界](docs/VALIDATION.md)、[职责划分](docs/FEATURE-MATRIX.md)。
 
-- SDK：官方稳定发行 **CPA v8.0.15**，ABI schema **6**。
-- 管理中心：实际集成验证 **CPAMC v1.25.3**。
-- 界面参考：**WorkBuddy Manager v1.0.79**；选择性学习 workbuddy2api-panel 的账号状态、模型与任务结果组织。
-- 保留 provider/auth 身份、原 `/panel` 资源路径及菜单名称，无改名迁移。
-- 当前二进制仅为 **Linux amd64 / glibc ≥ 2.34**，不是 ARM64、Windows 或 musl 通用包。
+## 本轮：单屏操作工作区
+
+手机顶部压缩为短标签、常用操作和一条摘要；搜索常驻，筛选按需展开。账号卡片按可用高度分页，状态、余额与操作直接可见。模型、任务和弹窗也同步紧凑化。桌面同样限制在视口内，必要时只滚动内容区。详见 [本轮测量与限制](docs/ITERATION-7.md)。
+
+## 本轮 PC 专项
+
+紧凑汇总支持直接筛选；表格与行内按钮对齐；每页 8/12/20 条；账号详情左右双栏，可直接切换上/下一个账号。四种桌面尺寸与四语言通过专项检查，手机布局保留。
 
 ## 四个工作区
 
@@ -21,7 +23,7 @@
 
 以上多项业务原本就存在；本版主要是完整重组交互、原生能力接入和正确性修复，不把全部旧能力宣传成新增。
 
-界面采用 Manager 的浅灰中性色、圆角卡片、紧凑表格、分区标签、底部工具栏和居中布局；支持深色与移动端。前端源代码为 React/TypeScript，编译资产内嵌于插件，不依赖运行时 CDN。
+界面按 CPAMC 内置业务页组织：单层分区标签、紧凑统计与表格、行内操作和持续结果提示，无重复标题栏、⌘K 或底部浮动导航；支持深色与移动端。前端源代码为 React/TypeScript，编译资产内嵌于插件，不依赖运行时 CDN。
 
 ## CPA 已有的能力不再另建
 
@@ -58,7 +60,7 @@ WorkBuddy 专有额度、模型发现缓存与业务任务状态仍由插件处�
 
 ```sh
 make frontend                 # npm ci + TypeScript + esbuild
-make frontend-test            # 28 项前端/原生配置契约
+make frontend-test            # 前端/原生配置契约
 make test                     # Go race 回归
 make build                    # 当前平台 c-shared
 python3 tests/preview_server.py --port 8080  # 仅本地演示夹具
@@ -80,9 +82,9 @@ node tests/rebuild-browser.mjs
 
 ## 已验证与未验证
 
-最终构建：Go race **506** 个命名测试/子测试通过；Go vet 通过；Node **28/28**；夹具浏览器 **12** 项；实际官方 CPA/CPAMC 空账号集成 **12** 项通过。详情及对应证据见 `docs/VALIDATION.md`。
-
-**尚未验证：真实账号推理、真实 token 刷新、真实上游奖励/签到/试用/旅行。** 不将空宿主联调或 mock 成功称为真实账号端到端验收。当前是可交付的隔离验证重构版，不是已获生产验收的正式上游发行版。
+本轮 Go race **533 PASS / 1 SKIP**，Node **61 PASS**，模拟数据浏览器 **62 项及普通 HTTP**，实际临时二进制/模拟宿主 ABI **8 组 PASS**。本轮未重跑官方真实宿主、未使用真实凭据；不宣称真实业务全部恢复。见 [本轮说明](docs/ITERATION-7.md)。
 
 
-补充：Go 回归另有 1 个可选 wire-shape 导出辅助测试因未设置 `WORKBUDDY_WIRESHAPE_OUT` 而跳过；不是失败，也未计入 506 个通过项。
+## 最新交付规则 / Latest delivery
+
+参见 [DELIVERY.md](docs/DELIVERY.md)。`make release` 校验当前截图与二进制证据后生成一个 `workbuddy-latest.zip`；校验成功才替换旧包。单独 HTML 为 `deliverables/WorkBuddy-交付说明.html`。

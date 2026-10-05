@@ -24,23 +24,48 @@ export async function request<T=any>(route:string,method='GET',body?:unknown,nat
  try{
   const response=await fetch((native?endpoints.native:endpoints.plugin)+route,{method,headers:{Authorization:'Bearer '+key,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal,credentials:'same-origin',cache:'no-store',redirect:'error'});
   if(response.status===401){clearManagementKey(key);throw new APIError(401,'authRequired')}
-  const raw=await response.text();let data:any={};try{data=raw?JSON.parse(raw):{}}catch{throw new APIError(response.status,'invalidResponse')}
+  const raw=await response.text();let data:any={};try{data=raw?JSON.parse(raw):{}}catch{throw new APIError(response.status,method==='GET'?'invalidResponse':'outcomeUnknown',method!=='GET')}
   const terminalTask=method==='GET'&&route.startsWith('/tasks/status?')&&typeof data.run_id==='string'&&['failed','canceled','succeeded','running'].includes(data.status);
   if(!terminalTask&&(!response.ok||data.error||data.success===false||data.ok===false))throw new APIError(response.status,typeof data.error==='string'?String(redact(data.error)):data.error?.message?String(redact(data.error.message)):'requestFailed');
   return data;
  }catch(error){if(error instanceof APIError)throw error;throw new APIError(0,method==='GET'?'networkError':'outcomeUnknown',method!=='GET')}
  finally{clearTimeout(timer)}
 }
+// CPA owns persistence. This is only a per-page serialization queue, not
+// another configuration store or a cross-editor transaction mechanism.
+const isObject=(value:unknown):value is Record<string,any>=>!!value&&typeof value==='object'&&!Array.isArray(value);
+function sameJSON(a:any,b:any):boolean {
+ if(a===b)return true;
+ if(Array.isArray(a))return Array.isArray(b)&&a.length===b.length&&a.every((v,i)=>sameJSON(v,b[i]));
+ if(isObject(a)&&isObject(b)){const keys=Object.keys(a);return keys.length===Object.keys(b).length&&keys.every(k=>Object.hasOwn(b,k)&&sameJSON(a[k],b[k]))}
+ return false;
+}
 let configQueue:Promise<unknown>=Promise.resolve();
 export function patchConfig(changes:Record<string,unknown>|((current:any)=>Record<string,unknown>)){
+ // Capture at enqueue time, not execution time: pending edits belong to the
+ // connection that submitted them, never a newly entered management key.
+ const identity=getKey();
+ const assertIdentity=()=>{if(getKey()!==identity)throw new APIError(409,'connectionChanged')};
  const work=async()=>{
-  const identity=getKey(),current=await request<Record<string,any>>('/config/plugins/configs/workbuddy','GET',undefined,true);
-  if(getKey()!==identity)throw new APIError(409,'connectionChanged');
-  const edits=typeof changes==='function'?changes(current):changes,next={...current};
-  for(const [key,value] of Object.entries(edits)){if(value===null)delete next[key];else next[key]=value}
+  assertIdentity();
+  const current=await request<Record<string,any>>('/config/plugins/configs/workbuddy','GET',undefined,true);
+  assertIdentity();
+  if(!isObject(current))throw new APIError(200,'invalidResponse');
+  const edits=typeof changes==='function'?changes(current):changes;
+  if(!isObject(edits))throw new APIError(400,'invalidResponse');
+  const next={...current};
+  for(const [key,value] of Object.entries(edits)){if(value===null)delete next[key];else Object.defineProperty(next,key,{value,enumerable:true,configurable:true,writable:true})}
+  assertIdentity();
   await request('/config/plugins/configs/workbuddy','PUT',next,true);
-  // Never claim runtime reload completed merely because persistence succeeded.
-  return request('/config/plugins/configs/workbuddy','GET',undefined,true);
+  // A successful PUT proves neither readback nor runtime reload. Once it has
+ // completed, failure to verify is UNKNOWN, not "save aborted"; never replay.
+  try{
+   assertIdentity();
+   const stored=await request<Record<string,any>>('/config/plugins/configs/workbuddy','GET',undefined,true);
+   assertIdentity();
+   if(!isObject(stored)||!Object.entries(edits).every(([key,value])=>value===null?!Object.hasOwn(stored,key):Object.hasOwn(stored,key)&&sameJSON(stored[key],value)))throw new Error('readback differs');
+   return stored;
+  }catch(error){throw new APIError(error instanceof APIError?error.code:409,'configUnconfirmed',true)}
  };
  const result=configQueue.then(work,work);configQueue=result.catch(()=>{});return result;
 }

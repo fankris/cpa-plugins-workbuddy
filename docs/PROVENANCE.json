@@ -1,5 +1,5 @@
 {
-  "build": "v8.0.15-2.0.0-rebuild.1",
+  "build": "v8.0.15-2.0.0-rebuild.7",
   "independent_unreleased_build": true,
   "date": "2026-10-05",
   "references": {
@@ -10,7 +10,8 @@
     "manager": {
       "commit": "14ad60f0629c60851f83c6a6f55a25d7e3f8dfb3",
       "source": "https://github.com/ithtelab/workbuddy-manager.git",
-      "version": "v1.0.79"
+      "version": "v1.0.79",
+      "additional_learning_commit": "508f803425ce74edc5b7dd6a082ceb415e1c7b62"
     },
     "panel": {
       "commit": "15a6fc94ecf9936bd4f70e1c503d9bef6aab2ad9",
@@ -34,14 +35,11 @@
     }
   },
   "binary": {
-    "path": "workbuddy.so",
-    "sha256": "3079b69305f4a6347a7f0dc9675bc49a3fe4242d7f87ba527fe45bdb285a2e8d",
+    "retained": false,
+    "temporary_validation_sha256": "33bacbe59d3b176a6944286b765535742a343fa30970190a4628d140e30f8537",
     "platform": "linux/amd64",
-    "minimum_glibc": "2.34",
-    "sdk_abi_schema": 6,
     "toolchain": "go1.26.0",
-    "command": "CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags '-X main.version=v8.0.15-2.0.0-rebuild.1' -o artifacts/workbuddy.so .",
-    "go_module_build_info": "artifacts/workbuddy.so: go1.26.0\n\tpath\tgithub.com/fankris/cpa-plugins-workbuddy\n\tmod\tgithub.com/fankris/cpa-plugins-workbuddy\t(devel)\t\n\tdep\tgithub.com/router-for-me/CLIProxyAPI/v8\tv8.0.15\th1:lda65BCT18VJzzGqeq3L8DNCU9YcMG3yzLzDVBx5JpA=\n\tdep\tgopkg.in/yaml.v3\tv3.0.1\th1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=\n\tbuild\t-buildmode=c-shared\n\tbuild\t-compiler=gc\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=1\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+    "command": "CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags \"-X main.version=v8.0.15-2.0.0-rebuild.7\" -o artifacts/workbuddy.so ."
   },
   "frontend_runtime": [
     {
@@ -65,7 +63,7 @@
       "license": "ISC"
     }
   ],
-  "npm_lock_sha256": "1dcb2ca24682c0d25ca54c43a26df54fe932d360bd575d3211a9deea320bbf77",
+  "npm_lock_sha256": "00b69d761e5cf1b628509ae3c3429e39446b0baa4de743030de2990510253631",
   "go_sum_sha256": "1570eee49c648fae1ae7fd2b8882df66108880306c76005191ddd07abae2781b",
   "license_files_sha256": {
     "licenses/CPA-MIT.txt": "879792e89cf1bdd6a8d446033ec87e30496f97dcafc4656dc53f641509b346a6",
@@ -90,5 +88,31 @@
     "CPAMC full app",
     "toolchains",
     "historical documents"
-  ]
+  ],
+  "iteration_note": "Desktop refinement, summary filter consistency and two-column inspector; see ITERATION-7.md",
+  "sdk_source_contracts": {
+    "result": "PASS",
+    "version": "v8.0.15",
+    "type": "pinned official source contract",
+    "checks": [
+      "host-owned HTTP operation open/cancel names",
+      "operation and callback IDs wire fields",
+      "request ownership and callback scope validation",
+      "terminal payload/error stream shape",
+      "executor and auth refresh callback scope"
+    ],
+    "sha256": {
+      "internal/pluginhost/host_callbacks.go": "b77d92c0f6cbaa0c3211cb23958a364e048600de5060c728db50cc1f9fbda1ff",
+      "internal/pluginhost/rpc_schema.go": "a42f9bd4913a04e269c28e63e1c7bae76ffe16939fc485146d32a5c0403c31cd",
+      "internal/pluginhost/http_operation_bridge.go": "ef1e2f04e5b888eb121a0da9cba806f4588c02b50d39e80e2354ec49fd0940ba",
+      "sdk/pluginabi/types.go": "92c929ad996c54a1f45e43aa8e0e499e5efc5ab009bc5a5920318bb092e74ad6"
+    }
+  },
+  "delivery": {
+    "policy": "one latest ZIP, source + Linux amd64 binary + offline illustrated HTML",
+    "html": "WorkBuddy-交付说明.html",
+    "zip": "workbuddy-latest.zip",
+    "screenshots": "actual current UI with synthetic fixture data",
+    "temporary_artifacts_retained": false
+  }
 }

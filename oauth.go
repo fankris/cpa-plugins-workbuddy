@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -101,8 +102,12 @@ func (s *loginCookieState) update(headers http.Header) {
 
 // doJSON sends one OAuth request through CPA host.http and preserves only the
 // per-login-state cookies supplied by the caller.
-func doJSON(cookieState *loginCookieState, method, fullURL string, headers func(*http.Request), body []byte) (json.RawMessage, int, error) {
-	req, err := http.NewRequest(method, fullURL, bytes.NewReader(body))
+func doJSON(cookieState *loginCookieState, method, fullURL string, headers func(*http.Request), body []byte, contexts ...context.Context) (json.RawMessage, int, error) {
+	ctx := pluginContext()
+	if len(contexts) > 0 && contexts[0] != nil {
+		ctx = contexts[0]
+	}
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -185,6 +190,16 @@ func handleStartLogin(raw []byte) ([]byte, error) {
 // entry point stays single per plugin; which realm it targets is chosen in
 // the plugin config (login_region dropdown) and is STICKY (v0.12.10).
 func startLoginWithRegion(raw []byte, region string) ([]byte, error) {
+	var req struct {
+		pluginapi.AuthLoginStartRequest
+		HostCallbackID string `json:"host_callback_id,omitempty"`
+	}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &req); err != nil {
+			return nil, err
+		}
+	}
+	ctx := withHostCallbackID(pluginContext(), req.HostCallbackID)
 	cookies := newLoginCookieState()
 	platform := currentLoginPlatform()
 	headers := authStateHeaders(region)
@@ -195,7 +210,7 @@ func startLoginWithRegion(raw []byte, region string) ([]byte, error) {
 		platform = "ide"
 		stateBase = upstreamBaseForRegion(region) + "/v2/plugin/auth/state?platform="
 	}
-	data, _, err := doJSON(cookies, http.MethodPost, stateBase+platform, headers, []byte("{}"))
+	data, _, err := doJSON(cookies, http.MethodPost, stateBase+platform, headers, []byte("{}"), ctx)
 	if err != nil {
 		return nil, fmt.Errorf("auth state failed: %w", err)
 	}
@@ -215,7 +230,10 @@ func startLoginWithRegion(raw []byte, region string) ([]byte, error) {
 }
 
 func handlePollLogin(raw []byte) ([]byte, error) {
-	var req pluginapi.AuthLoginPollRequest
+	var req struct {
+		pluginapi.AuthLoginPollRequest
+		HostCallbackID string `json:"host_callback_id,omitempty"`
+	}
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, err
 	}
@@ -245,7 +263,7 @@ func handlePollLogin(raw []byte) ([]byte, error) {
 		tokenBase = upstreamBaseForRegion(lc.region) + "/v2/plugin/auth/token?state="
 		tokenHeaders = func(r *http.Request) { loginHeadersFor(r, lc.region) }
 	}
-	tokRaw, status, errTok := doJSON(lc.cookies, http.MethodGet, tokenBase+state, tokenHeaders, nil)
+	tokRaw, status, errTok := doJSON(lc.cookies, http.MethodGet, tokenBase+state, tokenHeaders, nil, withHostCallbackID(pluginContext(), req.HostCallbackID))
 	if errTok != nil {
 		// Only the documented token-pending business code means "keep polling".
 		// Unknown 4xx/business codes are terminal so invalid credentials and dead
@@ -285,7 +303,7 @@ func handlePollLogin(raw []byte) ([]byte, error) {
 			r.Header.Set("Authorization", "Bearer "+tok.AccessToken)
 		}
 	}
-	if acctRaw, acctStatus, errAcct := doJSON(lc.cookies, http.MethodGet, acctBase+state, acctHeaders, nil); errAcct == nil {
+	if acctRaw, acctStatus, errAcct := doJSON(lc.cookies, http.MethodGet, acctBase+state, acctHeaders, nil, withHostCallbackID(pluginContext(), req.HostCallbackID)); errAcct == nil {
 		_ = json.Unmarshal(acctRaw, &acct)
 	} else {
 		// Account metadata is a separate pending stage. Keep polling only for the
@@ -343,7 +361,10 @@ func handlePollLogin(raw []byte) ([]byte, error) {
 }
 
 func handleRefreshAuth(raw []byte) ([]byte, error) {
-	var req pluginapi.AuthRefreshRequest
+	var req struct {
+		pluginapi.AuthRefreshRequest
+		HostCallbackID string `json:"host_callback_id,omitempty"`
+	}
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, err
 	}
@@ -354,7 +375,7 @@ func handleRefreshAuth(raw []byte) ([]byte, error) {
 	// Route via host.http.do so request-log captures the refresh call (H2
 	// compliance: was doJSON(sharedHTTPClient()) — bypassed host transport
 	// policy + logging for the X-Refresh-Token endpoint).
-	data, raw2, status, err := refreshCall(sa)
+	data, raw2, status, err := refreshCall(sa, withHostCallbackID(pluginContext(), req.HostCallbackID))
 	if err != nil {
 		if status >= 400 {
 			return nil, fmt.Errorf("refresh rejected (HTTP %d)", status)

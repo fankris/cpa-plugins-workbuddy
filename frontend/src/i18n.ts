@@ -2,6 +2,13 @@ import {useEffect,useState} from 'react';
 export type Locale='zh-CN'|'zh-TW'|'en'|'ru';
 export const locales:Locale[]=['zh-CN','zh-TW','en','ru'];
 const rows:Record<string,string[]>={
+ rowsPerPage:['每页','每頁','Rows per page','Строк на странице'],previousAccount:['上一个账号','上一個帳號','Previous account','Предыдущий аккаунт'],nextAccount:['下一个账号','下一個帳號','Next account','Следующий аккаунт'],attention:['待处理汇总','待處理彙總','Attention summary','Требуют внимания'],
+ knownCredits:['已知积分','已知點數','Known credits','Известные кредиты'],
+ mobileaccounts:['账号','帳號','Accounts','Аккаунты'],mobilemodels:['模型','模型','Models','Модели'],mobiletasks:['任务','任務','Tasks','Задачи'],mobileresults:['结果','結果','Results','Журнал'],
+ moreActions:['更多','更多','More','Ещё'],filters:['筛选','篩選','Filter','Фильтр'],taskRules:['任务规则与说明','任務規則與說明','Task rules & notes','Правила задач'],
+ configUnconfirmed:['已发送配置保存，但无法确认 CPA 回读结果。请刷新核实，勿重复提交；运行时是否生效仍需另行验证。','已送出設定儲存，但無法確認 CPA 回讀結果。請重新整理核實，勿重複送出；執行時是否生效仍需另外驗證。','Configuration save was sent, but CPA readback is unconfirmed. Refresh and verify before retrying. Runtime activation is not verified.','Сохранение отправлено, но чтение конфигурации CPA не подтверждено. Обновите и проверьте перед повтором. Применение в работе не проверено.'],
+ discoveryFallback:['发现失败，当前显示备用目录；不代表已验证可用。','探索失敗，目前顯示備用目錄，不代表已驗證可用。','Discovery failed. Showing fallback catalog, not verified availability.','Обнаружение не удалось. Показан резервный каталог, доступность не подтверждена.'],
+ discoverySkipped:['当前使用固定或静态目录，未执行上游发现。','目前使用固定或靜態目錄，未執行上游探索。','Using pinned or static catalog; upstream discovery was not performed.','Используется заданный или статический каталог; запрос к сервису не выполнялся.'],
  enableModel:['启用模型','啟用模型','Enable model','Включить модель'],disableModel:['停用模型','停用模型','Disable model','Отключить модель'],
  requestCanceled:['请求已取消','請求已取消','Request canceled','Запрос отменён'],
  addAccount:['原生登录','原生登入','Native login','Вход через CPA'],

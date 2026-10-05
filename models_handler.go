@@ -21,6 +21,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -31,7 +32,7 @@ import (
 //
 // With auth_index: that credential's list. Without: every account, keyed by
 // auth_index, so the panel can render all cards from one request.
-func handleModelsQuery(req pluginapi.ManagementRequest) map[string]any {
+func handleModelsQuery(req pluginapi.ManagementRequest, contexts ...context.Context) map[string]any {
 	authIndex := queryParam(req, "auth_index")
 	files, err := hostAuthList()
 	if err != nil {
@@ -46,16 +47,12 @@ func handleModelsQuery(req pluginapi.ManagementRequest) map[string]any {
 				"error":      "load auth: " + errGet.Error(),
 			}
 		}
-		models := modelsForCredential(sa)
-		return map[string]any{
-			"auth_index": f.AuthIndex,
-			"auth_id":    f.ID,
-			"name":       f.Name,
-			"region":     panelRegion(sa),
-			"count":      len(models),
-			"models":     models,
-			"source":     realmModelStateFor(accountServiceRegion(sa)),
-		}
+		result := credentialModelsResponse(modelContext(contexts...), sa, false)
+		result["auth_index"] = f.AuthIndex
+		result["auth_id"] = f.ID
+		result["name"] = f.Name
+		result["region"] = panelRegion(sa)
+		return result
 	}
 
 	if authIndex != "" {
@@ -97,7 +94,10 @@ func modelsForCredential(sa *storedAuth) []panelModel {
 	if err != nil {
 		return nil
 	}
-	infos := fetchDynamicModelsFromStorage(raw)
+	return panelModelsFromInfo(fetchDynamicModelsFromStorage(raw))
+}
+
+func panelModelsFromInfo(infos []pluginapi.ModelInfo) []panelModel {
 	out := make([]panelModel, 0, len(infos))
 	for _, m := range infos {
 		id := strings.TrimSpace(m.ID)
@@ -148,7 +148,7 @@ func storedAuthJSON(sa *storedAuth) ([]byte, error) {
 //
 // Discovery failures are returned as an error string rather than swallowed:
 // "the list did not change" and "the upstream refused" must look different.
-func handleModelsRefresh(req pluginapi.ManagementRequest) map[string]any {
+func handleModelsRefresh(req pluginapi.ManagementRequest, contexts ...context.Context) map[string]any {
 	authIndex := queryParam(req, "auth_index")
 	if authIndex == "" {
 		authIndex = requestBodyString(req, "auth_index")
@@ -168,18 +168,9 @@ func handleModelsRefresh(req pluginapi.ManagementRequest) map[string]any {
 		if errGet != nil {
 			return map[string]any{"error": "load auth: " + errGet.Error()}
 		}
-		// Force a fresh upstream read: the resolver serves a 5-minute cache
-		// otherwise, so a manual refresh would appear to do nothing.
-		invalidateDynamicModelsForRealm(accountServiceRegion(sa))
-
-		models := modelsForCredential(sa)
-		return map[string]any{
-			"status":     "ok",
-			"auth_index": authIndex,
-			"count":      len(models),
-			"models":     models,
-			"source":     realmModelStateFor(accountServiceRegion(sa)),
-		}
+		result := credentialModelsResponse(modelContext(contexts...), sa, true)
+		result["auth_index"] = authIndex
+		return result
 	}
 	return map[string]any{"error": "auth_index not found: " + authIndex}
 }
@@ -197,4 +188,16 @@ func requestBodyString(req pluginapi.ManagementRequest, key string) string {
 		return strings.TrimSpace(v)
 	}
 	return ""
+}
+
+// Read and refresh expose the result of THIS resolution, not another account's
+// mutable realm summary. A fallback is usable metadata, not discovery success.
+func credentialModelsResponse(ctx context.Context, sa *storedAuth, force bool) map[string]any {
+	raw, err := storedAuthJSON(sa)
+	if err != nil {
+		return map[string]any{"error": "invalid stored credential"}
+	}
+	result := resolveCredentialModels(ctx, raw, force)
+	models := panelModelsFromInfo(result.Models)
+	return map[string]any{"status": result.Status, "models": models, "count": len(models), "source": result.Source, "warning": result.Warning}
 }

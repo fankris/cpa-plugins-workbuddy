@@ -94,7 +94,13 @@ class Handler(BaseHTTPRequestHandler):
    if p==BASE+'/select':
     for a in accounts:a['selected']=a['auth_index']==body.get('auth_index')
     return self.send({'ok':True,'demo':True})
-   if p in [BASE+'/import',BASE+'/keepalive',BASE+'/checkin',BASE+'/trial',BASE+'/tasks/travel',BASE+'/daily-quota/reset']:return self.send({'ok':True,'demo':True,'note':'local simulation; no real account changed'})
+   if p==BASE+'/import':
+    payload=body.get('json',{})
+    if not isinstance(payload,dict) or not (payload.get('accessToken') or payload.get('access_token')):return self.send({'success':False,'error':'fixture import requires accessToken'},400)
+    idx='demo-import-'+str(len(accounts)+1)
+    accounts.append({'auth_index':idx,'auth_id':idx+'.json','name':idx+'.json','nickname':str(payload.get('nickname') or 'Imported demo account'),'uid':str(payload.get('uid') or idx),'region':'cn','plan':'Demo','disabled':False,'exhausted':False,'selected':False,'runtime':{'status':'active','unavailable':False},'daily_free':[]})
+    return self.send({'success':True,'auth_index':idx,'demo':True})
+   if p in [BASE+'/keepalive',BASE+'/checkin',BASE+'/trial',BASE+'/tasks/travel',BASE+'/daily-quota/reset']:return self.send({'ok':True,'demo':True,'note':'local simulation; no real account changed'})
   self.send({'error':'not found'},404)
 if __name__=='__main__':
  import argparse

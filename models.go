@@ -277,9 +277,8 @@ func parsePinnedModelList(raw string) []string {
 
 // discoverModelsFn is the seam for upstream realm discovery; tests swap it
 // out to stay off the network.
-var discoverModelsFn = func(accessToken, realm string) ([]pluginapi.ModelInfo, error) {
-	return callModelsAPI(accessToken, realm)
-}
+// Test-only discovery seam. Production preserves the request context below.
+var discoverModelsFn func(accessToken, realm string) ([]pluginapi.ModelInfo, error)
 
 // fetchDynamicModelsFromStorage resolves ONE credential's advertised model
 // list, in priority order:
@@ -331,50 +330,7 @@ func modelCacheKey(realm string, storageJSON []byte, accessToken string) string 
 }
 
 func fetchDynamicModelsFromStorage(storageJSON []byte) []pluginapi.ModelInfo {
-	accessToken := ""
-	if len(storageJSON) > 0 {
-		if tok, ok := extractAccessToken(storageJSON); ok {
-			accessToken = tok
-		}
-	}
-	serviceRealm := serviceRealmForStorage(storageJSON, accessToken)
-	realm := displayRegionForService(serviceRealm)
-	cacheKey := modelCacheKey(serviceRealm, storageJSON, accessToken)
-	if pinned := pinnedModelsForRealm(realm); len(pinned) > 0 {
-		noteRealmSource(serviceRealm, "pin (unverified)", len(pinned))
-		return pinned
-	}
-	if realm == regionIntl && serviceRealm != regionGlobal {
-		base := builtinStaticModelsForRealm(realm)
-		st := appendCustomModels(realm, base)
-		noteRealmSource(serviceRealm, modelSourceWithCustom(realm, "static (intl dynamic discovery unavailable)", base), len(st))
-		return st
-	}
-	if accessToken == "" {
-		base := builtinStaticModelsForRealm(realm)
-		st := appendCustomModels(realm, base)
-		noteRealmSource(serviceRealm, modelSourceWithCustom(realm, "static (no token in storage)", base), len(st))
-		return st
-	}
-	if models, ok := cachedDynamicModels(cacheKey); ok {
-		base := models
-		models = appendCustomModels(realm, base)
-		noteRealmSource(serviceRealm, modelSourceWithCustom(realm, "discovery", base), len(models))
-		return models
-	}
-	dyn, err := discoverModelsFn(accessToken, serviceRealm)
-	if err != nil {
-		noteRealmError(serviceRealm, err.Error())
-		return staticModelsForRealm(realm)
-	}
-	if len(dyn) == 0 {
-		noteRealmError(serviceRealm, "discovery payload had no user-facing models")
-		return staticModelsForRealm(realm)
-	}
-	storeDynamicModels(cacheKey, dyn)
-	dyn = appendCustomModels(realm, dyn)
-	log.Printf("models: service=%s region=%s discovery ok via %s catalog: %d model(s)", serviceRealm, realm, serviceRealm, len(dyn))
-	return dyn
+	return resolveCredentialModels(pluginContext(), storageJSON, false).Models
 }
 
 // realmModelsState is the dashboard-facing snapshot of one realm's model
@@ -684,27 +640,39 @@ func modelsEndpointFor(realm string) (modelsURL, origin string) {
 // honour Retry-After via the shared typed-error helpers so the backoff matches
 // the billing path instead of inventing a second policy.
 func callModelsAPI(accessToken string, realm ...string) ([]pluginapi.ModelInfo, error) {
+	return callModelsAPIContext(pluginContext(), accessToken, realm...)
+}
+
+func callModelsAPIContext(parent context.Context, accessToken string, realm ...string) ([]pluginapi.ModelInfo, error) {
+	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
+	defer cancel()
 	var lastErr error
 	for attempt := 0; attempt <= len(modelsDiscoveryRetryDelays); attempt++ {
-		models, err := callModelsAPIOnce(accessToken, realm...)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		models, err := callModelsAPIOnceContext(ctx, accessToken, realm...)
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		if err == nil {
-			if attempt > 0 {
-				log.Printf("models: discovery succeeded on attempt %d (previous failure: %v)", attempt+1, lastErr)
-			}
 			return models, nil
 		}
 		lastErr = err
 		if attempt == len(modelsDiscoveryRetryDelays) || !isTransientUpstreamErr(err) {
 			break
 		}
-		// retryDelayFor already caps Retry-After at maxRetryAfter; clamp once
-		// more to the discovery-specific ceiling so one throttled gateway
-		// cannot stall the client's model-list request.
 		delay := retryDelayFor(err, modelsDiscoveryRetryDelays[attempt])
 		if delay > modelsDiscoveryMaxBackoff {
 			delay = modelsDiscoveryMaxBackoff
 		}
-		time.Sleep(delay)
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
 	}
 	return nil, lastErr
 }
@@ -720,7 +688,11 @@ var modelsDiscoveryRetryDelays = []time.Duration{700 * time.Millisecond, 2 * tim
 const modelsDiscoveryMaxBackoff = 5 * time.Second
 
 func callModelsAPIOnce(accessToken string, realm ...string) ([]pluginapi.ModelInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	return callModelsAPIOnceContext(pluginContext(), accessToken, realm...)
+}
+
+func callModelsAPIOnceContext(parent context.Context, accessToken string, realm ...string) ([]pluginapi.ModelInfo, error) {
+	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()
 	// Model discovery is per-realm (v0.12.18): Global tokens query
 	// workbuddy.ai, Intl (codebuddy.ai) tokens query codebuddy.ai, and CN
@@ -776,7 +748,7 @@ func callModelsAPIOnce(accessToken string, realm ...string) ([]pluginapi.ModelIn
 		if snippet == "" {
 			snippet = "(empty body)"
 		}
-		return nil, fmt.Errorf("models API status %d from %s: %s", resp.StatusCode, modelsURL, snippet)
+		return nil, &upstreamError{StatusCode: resp.StatusCode, Path: modelsURL, Snippet: snippet, RetryAfter: parseRetryAfter(resp.Headers.Get("Retry-After"))}
 	}
 	var apiResp struct {
 		Code int `json:"code"`
@@ -1391,7 +1363,10 @@ func globalModelRegistryList() []pluginapi.ModelInfo {
 }
 
 func handleModelForAuth(raw []byte) ([]byte, error) {
-	var req pluginapi.AuthModelRequest
+	var req struct {
+		pluginapi.AuthModelRequest
+		HostCallbackID string `json:"host_callback_id,omitempty"`
+	}
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, err
 	}
@@ -1400,7 +1375,7 @@ func handleModelForAuth(raw []byte) ([]byte, error) {
 	// req.AuthProvider back would silently drop the model list whenever the
 	// auth file carries a non-canonical provider string.
 	cacheModelAliases(req.Host)
-	models := fetchDynamicModelsFromStorage(req.StorageJSON)
+	models := resolveCredentialModels(withHostCallbackID(pluginContext(), req.HostCallbackID), req.StorageJSON, false).Models
 	models = filterGloballyDisabledModels(models)
 	models = filterExcludedModels(models, req.Host)
 	return okEnvelope(pluginapi.ModelResponse{Provider: providerName, Models: models})

@@ -2,8 +2,8 @@
 // http bridge (host.http.do / host.http.do_stream / stream_read / stream_close).
 // Production traffic always uses the bridge so request-log captures outbound
 // calls and host transport policy (proxy, timeout) applies. The *Direct
-// variants are the test-only fallback used when the bridge is unavailable
-// (unit tests, or hosts older than v7.2.x without the http bridge RPC).
+// variants are test helpers only. Unsupported hosts fail closed; there is no
+// production direct-transport fallback. This build requires CPA 8.0.15.
 package main
 
 import (
@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
@@ -22,8 +23,8 @@ import (
 )
 
 // sharedHTTPClient is the fallback HTTP client used ONLY when the host HTTP
-// bridge is unavailable (unit tests, or hosts older than v7.2.x without
-// host.http.* RPC). All production upstream calls should route via hostHTTPDo
+// bridge is exercised by loopback-only unit tests. All production upstream calls
+// must route via hostHTTPDo
 // / hostHTTPDoStream so request-log captures them and host transport policy
 // applies. Direct use of this client in new code is a compliance bug.
 func sharedHTTPClient() *http.Client {
@@ -120,6 +121,7 @@ func hostCallbackIDFromRequest(req *http.Request) string {
 // use (host prefers Request when present).
 type rpcHostHTTPRequestWire struct {
 	HostCallbackID string            `json:"host_callback_id,omitempty"`
+	OperationID    string            `json:"operation_id,omitempty"`
 	Request        *rpcHostHTTPInner `json:"request,omitempty"`
 }
 
@@ -161,11 +163,12 @@ func hostBridgeUnwrap(raw []byte, method string) (json.RawMessage, error) {
 }
 
 // hostBridgeAvailable reports whether host.http.* RPC is wired up. False in
-// unit tests (no hostAPI) and when the host binary predates the bridge.
+// unit tests without an explicit RPC override. Version compatibility is pinned
+// to CPA 8.0.15; a host callback failure is never a reason to bypass the bridge.
 func hostBridgeAvailable() bool {
 	hostAPIMu.RLock()
 	defer hostAPIMu.RUnlock()
-	return hostAPI != nil && hostAPI.call != nil
+	return (hostAPI != nil && hostAPI.call != nil) || hostRPCTestOverride != nil
 }
 
 // hostHTTPDo performs a non-streaming upstream call via the CPA host bridge.
@@ -173,8 +176,11 @@ func hostBridgeAvailable() bool {
 // unusable result; they are never retried through a second transport because
 // the first RPC may already have executed a side effect.
 func hostHTTPDo(req *http.Request) (*hostHTTPResponse, error) {
-	if req == nil {
-		return nil, fmt.Errorf("nil request")
+	if req == nil || req.URL == nil {
+		return nil, fmt.Errorf("nil request or URL")
+	}
+	if err := req.Context().Err(); err != nil {
+		return nil, err
 	}
 	if hostHTTPTestOverride != nil {
 		return hostHTTPTestOverride(req)
@@ -191,8 +197,14 @@ func hostHTTPDo(req *http.Request) (*hostHTTPResponse, error) {
 	if !hostBridgeAvailable() {
 		return nil, fmt.Errorf("CPA host.http bridge unavailable")
 	}
+	op, err := openHostHTTPOperation(req)
+	if err != nil {
+		return nil, err
+	}
+	defer op.finish()
 	wire := rpcHostHTTPRequestWire{
 		HostCallbackID: hostCallbackIDFromRequest(req),
+		OperationID:    op.id,
 		Request: &rpcHostHTTPInner{
 			Method:  req.Method,
 			URL:     req.URL.String(),
@@ -285,10 +297,14 @@ func hostHTTPDoDirect(req *http.Request, bodyBytes []byte) (*hostHTTPResponse, e
 //   - Direct (test fallback): direct holds the full buffered body, Read drains
 //     it once then reports done. Close is a no-op.
 type hostHTTPStream struct {
-	streamID string
-	direct   []byte
-	directAt int
-	reader   io.ReadCloser
+	mu        sync.Mutex
+	closeOnce sync.Once
+	closed    bool
+	operation *hostHTTPOperation
+	streamID  string
+	direct    []byte
+	directAt  int
+	reader    io.ReadCloser
 }
 
 // hostStreamTestOverride, when non-nil, answers hostHTTPDoStream instead of the
@@ -302,8 +318,11 @@ var hostStreamTestOverride func(*http.Request) (io.ReadCloser, int, error)
 // owns the actual response body; plugin code only pulls chunks via the bridge.
 // Production failures are returned without a second transport attempt.
 func hostHTTPDoStream(req *http.Request) (*hostHTTPStream, int, http.Header, error) {
-	if req == nil {
-		return nil, 0, nil, fmt.Errorf("nil request")
+	if req == nil || req.URL == nil {
+		return nil, 0, nil, fmt.Errorf("nil request or URL")
+	}
+	if err := req.Context().Err(); err != nil {
+		return nil, 0, nil, err
 	}
 	if hostStreamTestOverride != nil {
 		body, status, err := hostStreamTestOverride(req)
@@ -327,8 +346,19 @@ func hostHTTPDoStream(req *http.Request) (*hostHTTPStream, int, http.Header, err
 	if !hostBridgeAvailable() {
 		return nil, 0, nil, fmt.Errorf("CPA host.http bridge unavailable")
 	}
+	op, err := openHostHTTPOperation(req)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	transferred := false
+	defer func() {
+		if !transferred {
+			op.finish()
+		}
+	}()
 	wire := rpcHostHTTPRequestWire{
 		HostCallbackID: hostCallbackIDFromRequest(req),
+		OperationID:    op.id,
 		Request: &rpcHostHTTPInner{
 			Method:  req.Method,
 			URL:     req.URL.String(),
@@ -354,7 +384,8 @@ func hostHTTPDoStream(req *http.Request) (*hostHTTPStream, int, http.Header, err
 	if resp.StreamID == "" {
 		return nil, resp.StatusCode, http.Header(resp.Headers), fmt.Errorf("host stream bridge unavailable")
 	}
-	return &hostHTTPStream{streamID: resp.StreamID}, resp.StatusCode, http.Header(resp.Headers), nil
+	transferred = true
+	return &hostHTTPStream{streamID: resp.StreamID, operation: op}, resp.StatusCode, http.Header(resp.Headers), nil
 }
 
 // hostHTTPDoStreamDirect is the test-only fallback: it performs the request
@@ -384,34 +415,36 @@ func (s *hostHTTPStream) Read() ([]byte, bool, error) {
 	if s == nil {
 		return nil, true, fmt.Errorf("stream closed")
 	}
-	// Reader (test seam) mode: drain the installed reader.
-	if s.reader != nil {
-		buf := make([]byte, 32*1024)
-		n, err := s.reader.Read(buf)
-		if n > 0 {
-			return buf[:n], false, nil
-		}
-		if err == io.EOF {
-			return nil, true, nil
-		}
-		if err != nil {
-			return nil, true, err
-		}
-		return nil, false, nil
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return nil, true, fmt.Errorf("stream closed")
 	}
-	// Direct (test fallback) mode: serve the buffered body in one shot.
+	reader, streamID := s.reader, s.streamID
 	if s.direct != nil {
 		if s.directAt >= len(s.direct) {
+			s.mu.Unlock()
 			return nil, true, nil
 		}
 		out := s.direct[s.directAt:]
 		s.directAt = len(s.direct)
+		s.mu.Unlock()
 		return out, false, nil
 	}
-	if s.streamID == "" {
+	s.mu.Unlock()
+	// Never hold mu during blocking I/O: Close must be able to abort a blocked read.
+	if reader != nil {
+		buf := make([]byte, 32*1024)
+		n, err := reader.Read(buf)
+		if err == io.EOF {
+			return buf[:n], true, nil
+		}
+		return buf[:n], err != nil, err
+	}
+	if streamID == "" {
 		return nil, true, fmt.Errorf("stream closed")
 	}
-	raw, err := hostCall(pluginabi.MethodHostHTTPStreamRead, mustJSON(map[string]any{"stream_id": s.streamID}))
+	raw, err := hostCall(pluginabi.MethodHostHTTPStreamRead, mustJSON(map[string]string{"stream_id": streamID}))
 	if err != nil {
 		return nil, true, err
 	}
@@ -420,35 +453,32 @@ func (s *hostHTTPStream) Read() ([]byte, bool, error) {
 		return nil, true, err
 	}
 	var resp rpcHostHTTPStreamReadResponseWire
-	if err := json.Unmarshal(result, &resp); err != nil {
+	if err = json.Unmarshal(result, &resp); err != nil {
 		return nil, true, fmt.Errorf("decode host.http.stream_read response: %w", err)
 	}
 	if resp.Error != "" {
-		return nil, true, fmt.Errorf("%s", resp.Error)
+		return resp.Payload, true, fmt.Errorf("%s", resp.Error)
 	}
 	return resp.Payload, resp.Done, nil
 }
 
-// Close aborts the upstream stream. Always safe to call (idempotent on host).
+// The close operation is exactly-once locally as well as idempotent on CPA.
 func (s *hostHTTPStream) Close() {
 	if s == nil {
 		return
 	}
-	if s.reader != nil {
-		_ = s.reader.Close()
-		s.reader = nil
-		return
-	}
-	if s.direct != nil {
-		s.direct = nil
-		s.directAt = 0
-		return
-	}
-	if s.streamID == "" {
-		return
-	}
-	_, _ = hostCall(pluginabi.MethodHostHTTPStreamClose, mustJSON(map[string]any{"stream_id": s.streamID}))
-	s.streamID = ""
+	s.closeOnce.Do(func() {
+		s.mu.Lock()
+		s.closed = true
+		reader, id := s.reader, s.streamID
+		s.mu.Unlock()
+		defer s.operation.finish()
+		if reader != nil {
+			_ = reader.Close()
+		} else if id != "" {
+			_, _ = hostCall(pluginabi.MethodHostHTTPStreamClose, mustJSON(map[string]string{"stream_id": id}))
+		}
+	})
 }
 
 // hostStreamReader adapts a hostHTTPStream to io.Reader so existing
@@ -467,40 +497,28 @@ func newHostStreamReader(s *hostHTTPStream) *hostStreamReader {
 }
 
 func (r *hostStreamReader) Read(p []byte) (int, error) {
-	// Drain buffered bytes first.
-	if len(r.buf) > 0 {
-		n := copy(p, r.buf)
-		r.buf = r.buf[n:]
-		return n, nil
+	if len(p) == 0 {
+		return 0, nil
 	}
-	if r.done {
-		if r.err != nil {
-			return 0, r.err
+	for {
+		if len(r.buf) > 0 {
+			n := copy(p, r.buf)
+			r.buf = r.buf[n:]
+			return n, nil
 		}
-		return 0, io.EOF
-	}
-	chunk, done, err := r.s.Read()
-	if err != nil {
-		r.done = true
+		if r.done {
+			if r.err != nil {
+				return 0, r.err
+			}
+			return 0, io.EOF
+		}
+		chunk, done, err := r.s.Read()
+		r.buf = chunk
+		r.done = done || err != nil
 		r.err = err
-		return 0, err
+		// Deliver payload before a terminal error, as required by io.Reader.
+		// Empty keepalive chunks iterate instead of growing the call stack.
 	}
-	if len(chunk) > 0 {
-		n := copy(p, chunk)
-		if n < len(chunk) {
-			r.buf = append(r.buf, chunk[n:]...)
-		}
-		if done {
-			r.done = true
-		}
-		return n, nil
-	}
-	if done {
-		r.done = true
-		return 0, io.EOF
-	}
-	// Empty chunk, not done — recurse to fetch next.
-	return r.Read(p)
 }
 
 // mustJSON marshals v and panics on error — the wire structs above are always

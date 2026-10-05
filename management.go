@@ -187,6 +187,11 @@ func handleManagement(raw []byte) ([]byte, error) {
 	if len(req.Body) > managementBodyLimit {
 		return okEnvelope(mgmtJSONResponse(http.StatusRequestEntityTooLarge, map[string]any{"error": "管理请求体过大"}))
 	}
+	var scope struct {
+		HostCallbackID string `json:"host_callback_id,omitempty"`
+	}
+	_ = json.Unmarshal(raw, &scope)
+	modelsCtx := withHostCallbackID(pluginContext(), scope.HostCallbackID)
 	path := strings.TrimRight(req.Path, "/")
 
 	// Panel assets handler across supported provider prefixes:
@@ -217,6 +222,15 @@ func handleManagement(raw []byte) ([]byte, error) {
 	}
 
 	// Rate limit for mutating endpoints (v0.6.31, limits reworked v0.9.25).
+	// Plugin-layer key enforcement was removed in 0.9.25 to follow the
+	// official plugin spec: management.handle sits solely behind the host
+	// management middleware, and every request reaching the plugin has
+	// already passed it. The extra management_key gate broke mutating calls
+	// (refresh/check-in/import) whenever the configured key differed from
+	// the credential the embedding UI actually forwards — CPAMP substitutes
+	// its saved CPA key, CPAMC sends the CPA secret — a guaranteed 403 on
+	// shared-key misalignment. The per-IP token bucket stays as a cheap
+	// abuse guard; capacity covers bulk "check in all" bursts.
 	if req.Method == http.MethodPost || mutatingManagementPath(path) {
 		if !allowManagementRequest(managementClientIP(req)) {
 			return okEnvelope(mgmtJSONResponse(http.StatusTooManyRequests, map[string]any{
@@ -280,9 +294,9 @@ func handleManagement(raw []byte) ([]byte, error) {
 		result := handleGrowthTaskStatus(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
 	case req.Method == http.MethodGet && (rel == "/models" || path == base+"/models"):
-		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsQuery(req)))
+		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsQuery(req, modelsCtx)))
 	case req.Method == http.MethodPost && (rel == "/models/refresh" || path == base+"/models/refresh"):
-		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsRefresh(req)))
+		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsRefresh(req, modelsCtx)))
 	case req.Method == http.MethodGet && (rel == "/models/catalog" || path == base+"/models/catalog"):
 		models := handleGlobalModelCatalog()
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, map[string]any{"models": models, "count": len(models)}))

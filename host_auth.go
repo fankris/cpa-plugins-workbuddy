@@ -44,29 +44,11 @@ func hostAuthList() ([]pluginapi.HostAuthFileEntry, error) {
 	// array (P1-3: fragile pattern, safe today but could break if resp is
 	// ever cached/reused).
 	//
-	// Filter by filename prefix, NOT by Type/Provider: many existing auth
-	// files on disk don't carry a "type"/"provider" field (they were written
-	// before that convention), and EqualFold("", providerName) returns false
-	// for them — meaning we'd incorrectly exclude files that have the
-	// workbuddy- prefix but no type field. Filename prefix is the only
-	// reliable cross-version discriminator.
+	// CPA has already classified these entries. Respect explicit provider/type,
+	// including user-named files, while retaining our legacy untyped filenames.
+	// Do not rename files or adopt another provider just because of a prefix.
 	out := make([]pluginapi.HostAuthFileEntry, 0, len(resp.Files))
-	// Accept both the canonical workbuddy- prefix and legacy codebuddy-cn-
-	// files (merged plugin). adoptForeignAuths rewrites the latter to the
-	// canonical name; until then they still participate in reconcile.
-	prefixes := []string{providerName + "-", "codebuddy-cn-", "codebuddy-intl-"}
 	for _, f := range resp.Files {
-		lower := strings.ToLower(f.Name)
-		matched := false
-		for _, prefix := range prefixes {
-			if strings.HasPrefix(lower, prefix) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			continue
-		}
 		// Content guard: a file can carry our filename prefix while its body
 		// belongs to another plugin (e.g. a qoder auth saved under a
 		// workbuddy- name by a third-party tool). Running it through this
@@ -75,6 +57,9 @@ func hostAuthList() ([]pluginapi.HostAuthFileEntry, error) {
 		// filename prefix remains their only discriminator.
 		if foreign, owner := foreignAuthOwner(f.Type, f.Provider); foreign {
 			log.Printf("workbuddy: auth %s skipped — credential type %q belongs to the %s plugin, not workbuddy", f.Name, owner, owner)
+			continue
+		}
+		if !isOurDeclaredType(f.Type) && !isOurDeclaredType(f.Provider) && !isOurFamilyFileName(f.Name) {
 			continue
 		}
 		out = append(out, f)
