@@ -145,9 +145,6 @@ func managementRegistration() managementRegistrationResponse {
 	base := "/plugins/" + providerName
 	return managementRegistrationResponse{
 		Routes: []managementRoute{
-			// Keep dashboard menu on GET route for hosts resolving menus via Routes.
-			// Newer hosts convert this or coalesce it with the resource route.
-			{Method: http.MethodGet, Path: base + "/panel", Menu: "WorkBuddy", Description: "WorkBuddy dashboard: credits, check-in, plan, import."},
 			{Method: http.MethodGet, Path: base + "/accounts", Description: "List WorkBuddy accounts with credits, plan and check-in status."},
 			{Method: http.MethodPost, Path: base + "/refresh", Description: "Force refresh quota/cache for all accounts."},
 			{Method: http.MethodPost, Path: base + "/checkin", Description: "Manually check in one account (auth_index) or all."},
@@ -203,22 +200,6 @@ func handleManagement(raw []byte) ([]byte, error) {
 		return okEnvelope(response)
 	}
 
-	// Legacy / fallback management routes for panel assets across host variants
-	legacyPrefixes := []string{
-		loadedManagementBasePath() + "/plugins/" + providerName,
-		"/plugins/" + providerName,
-	}
-	for _, lp := range legacyPrefixes {
-		if req.Method == http.MethodGet && (path == lp+"/panel" || strings.HasPrefix(path, lp+"/panel/")) {
-			sub := strings.TrimPrefix(path, lp)
-			asset := servePanel(sub)
-			response := mgmtAssetResponse(asset.contentType, asset.body)
-			if asset.statusCode != 0 {
-				response.StatusCode = asset.statusCode
-			}
-			return okEnvelope(response)
-		}
-	}
 
 	// Rate limit for mutating endpoints (v0.6.31, limits reworked v0.9.25).
 	// Plugin-layer key enforcement was removed in 0.9.25 to follow the

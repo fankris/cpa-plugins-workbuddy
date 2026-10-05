@@ -1,5 +1,13 @@
 # Changelog
 
+## v8.0.13-1.0.43 — 2026-10-04
+
+### Modern CPA Resources contract alignment
+
+- Remove legacy `Routes` menu declaration and legacy management panel fallbacks.
+- Strictly adhere to the modern CLIProxyAPI v8 resource contract: the dashboard menu and browser assets (`/panel`, `/panel.js`, `/panel-i18n.js`) are declared exclusively via `Resources`.
+- All web panel assets are served under host-delegated unauthenticated resource routing (`loadedResourceBasePath()`).
+
 ## v8.0.13-1.0.42 — 2026-10-04
 
 ### UI localization, host path security, and test isolation
