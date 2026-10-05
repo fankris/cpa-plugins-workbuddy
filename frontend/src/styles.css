@@ -18,12 +18,11 @@ main{max-width:1376px;margin:0 auto;padding:20px 48px 145px}.demo-banner{border-
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 /* CPAMC places a floating toolbar above plugin iframes. Reserve its hit area. */
-.embedded .topbar{padding-top:84px;padding-bottom:16px;min-height:132px}
 .host-theme .top-actions .locale,.host-theme .theme-control{display:none}
 
 /* Iteration 2: embedded native-page composition, not an application within an application. */
 .app-shell main{max-width:none;margin:0;padding:24px 28px 32px}
-.embedded main{padding-top:80px}
+.embedded main{padding-top:10px}
 .section-nav{margin-bottom:24px;gap:18px}
 .page-heading{margin-bottom:24px;align-items:center}
 .page-heading h1{font-size:25px;font-weight:650;letter-spacing:-.5px}
@@ -39,14 +38,14 @@ main{max-width:1376px;margin:0 auto;padding:20px 48px 145px}.demo-banner{border-
 .operation-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--muted);border:1px solid var(--line);border-radius:10px;padding:9px 13px;margin-bottom:18px;font-size:12px}.operation-strip>span{overflow-wrap:anywhere}.operation-strip .button{margin-left:auto}
 .standalone-tools{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:24px;font-size:11px;color:var(--secondary)}
 .demo-banner{margin-bottom:18px}.toast{top:auto;bottom:20px}
-@media(max-width:640px){.app-shell main{padding:16px 14px 24px}.embedded main{padding-top:80px}.page-heading{align-items:flex-start;gap:14px}.page-heading h1{font-size:22px}.heading-actions{gap:6px}.heading-actions .button{flex:0 1 auto;font-size:11px}.section-nav{margin-bottom:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:13px;min-height:90px}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}.table-card{border-radius:10px}.row-actions{gap:0}.operation-strip{gap:7px}}
+@media(max-width:640px){.app-shell main{padding:16px 14px 24px}.embedded main{padding-top:10px}.page-heading{align-items:flex-start;gap:14px}.page-heading h1{font-size:22px}.heading-actions{gap:6px}.heading-actions .button{flex:0 1 auto;font-size:11px}.section-nav{margin-bottom:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:13px;min-height:90px}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}.table-card{border-radius:10px}.row-actions{gap:0}.operation-strip{gap:7px}}
 .task-filters{margin:0 0 16px;display:flex;gap:6px;flex-wrap:wrap}.run-summary{margin-top:20px;max-width:680px}.run-summary details{margin-top:18px}.run-summary summary{cursor:pointer;color:var(--secondary);margin-bottom:10px}.run-status>.badge{font-size:13px}
 
 /* Iteration 6: a bounded work surface. Navigation and actions stay in view;
    only the active list scrolls. Mobile is a card workflow, not a wide table. */
 html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 .app-shell main{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:auto;padding:14px 22px 12px}
-.app-shell.embedded main{padding-top:80px}
+.app-shell.embedded main{padding-top:10px}
 .app-shell main>*{flex-shrink:0}
 .section-nav{margin-bottom:12px}.page-heading{position:relative;margin-bottom:12px;gap:12px}
 .page-heading h1{font-size:22px}.page-heading p{font-size:11px}
@@ -78,7 +77,7 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 .modal-head,.modal-footer{flex-shrink:0}.modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain}
 @media(max-width:640px),(max-height:500px) and (pointer:coarse){
  .app-shell main{padding:8px 10px max(6px,env(safe-area-inset-bottom));overflow:auto}
- .app-shell.embedded main{padding-top:80px}
+ .app-shell.embedded main{padding-top:10px}
  .demo-banner{font-size:9px;min-height:21px;padding:2px 6px;margin-bottom:3px;white-space:nowrap;overflow:hidden}
  .section-nav{overflow:visible;gap:5px;margin-bottom:6px;min-height:43px}
  .section-nav>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;flex:1;min-width:0}
@@ -199,7 +198,7 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 .modal-head>h2{flex:1;min-width:0}
 @media(min-width:641px) and (min-height:501px),(min-width:641px) and (pointer:fine){
  .app-shell main{padding:12px 20px 10px;max-width:1800px;margin:0 auto}
- .app-shell.embedded main{padding-top:80px}
+ .app-shell.embedded main{padding-top:10px}
  .demo-banner{padding:2px 9px;margin-bottom:4px;min-height:22px;font-size:10px}
  .section-nav{margin-bottom:8px;min-height:40px}
  .section-nav button{padding:8px 2px 10px;font-size:12px}
