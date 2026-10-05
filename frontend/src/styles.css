@@ -18,5 +18,5 @@ main{max-width:1376px;margin:0 auto;padding:20px 48px 145px}.demo-banner{border-
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 /* CPAMC places a floating toolbar above plugin iframes. Reserve its hit area. */
-.embedded .topbar{padding-top:84px;padding-bottom:16px;min-height:132px}
+.embedded main{padding-top:16px}
 .host-theme .top-actions .locale,.host-theme .theme-control{display:none}

@@ -389,18 +389,21 @@ func servePanel(sub string) panelAsset {
 	if idx := strings.Index(sub, "?"); idx != -1 {
 		sub = sub[:idx]
 	}
-	switch sub {
-	case "", "/", "/panel", "/panel.html":
+	sub = strings.TrimSpace(sub)
+	clean := "/" + strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(sub, "/"), "panel/"), "/")
+	if clean == "/" || clean == "/panel" || clean == "/panel.html" || sub == "" || sub == "/" || sub == "/panel" || sub == "/panel.html" {
 		return panelAsset{contentType: "text/html; charset=utf-8", body: localizedPanelHTML()}
-	case "/panel-i18n.js":
-		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelI18N}
-	case "/panel.css":
-		return panelAsset{contentType: "text/css; charset=utf-8", body: panelCSS}
-	case "/panel.js":
-		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelJS}
-	default:
-		return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}
 	}
+	if clean == "/panel.css" || sub == "/panel.css" || strings.HasSuffix(sub, "/panel.css") {
+		return panelAsset{contentType: "text/css; charset=utf-8", body: panelCSS}
+	}
+	if clean == "/panel-i18n.js" || sub == "/panel-i18n.js" || strings.HasSuffix(sub, "/panel-i18n.js") {
+		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelI18N}
+	}
+	if clean == "/panel.js" || sub == "/panel.js" || strings.HasSuffix(sub, "/panel.js") {
+		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelJS}
+	}
+	return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}
 }
 
 //go:embed panel.html

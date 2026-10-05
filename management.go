@@ -189,29 +189,34 @@ func handleManagement(raw []byte) ([]byte, error) {
 	}
 	path := strings.TrimRight(req.Path, "/")
 
-	// Browser UI resource routes (unauthenticated). The panel shell and its
-	// script are served here; each asset carries its own content type.
-	resPrefix := loadedResourceBasePath()
-	if req.Method == http.MethodGet && (path == resPrefix || strings.HasPrefix(path, resPrefix+"/")) {
-		sub := strings.TrimPrefix(path, resPrefix)
-		asset := servePanel(sub)
-		response := mgmtAssetResponse(asset.contentType, asset.body)
-		if asset.statusCode != 0 {
-			response.StatusCode = asset.statusCode
+	// Panel assets handler across supported provider prefixes:
+	// - loadedResourceBasePath()
+	// - loadedManagementBasePath() + "/plugins/" + providerName
+	// - "/plugins/" + providerName
+	if req.Method == http.MethodGet {
+		prefixes := []string{
+			loadedResourceBasePath(),
+			loadedManagementBasePath() + "/plugins/" + providerName,
+			"/plugins/" + providerName,
 		}
-		return okEnvelope(response)
+		for _, pfx := range prefixes {
+			if path == pfx || strings.HasPrefix(path, pfx+"/") {
+				sub := strings.TrimPrefix(path, pfx)
+				clean := strings.TrimPrefix(sub, "/")
+				if clean == "" || clean == "panel" || clean == "panel.html" || strings.HasPrefix(clean, "panel/") ||
+					strings.HasSuffix(clean, "panel.css") || strings.HasSuffix(clean, "panel-i18n.js") || strings.HasSuffix(clean, "panel.js") {
+					asset := servePanel(sub)
+					response := mgmtAssetResponse(asset.contentType, asset.body)
+					if asset.statusCode != 0 {
+						response.StatusCode = asset.statusCode
+					}
+					return okEnvelope(response)
+				}
+			}
+		}
 	}
 
 	// Rate limit for mutating endpoints (v0.6.31, limits reworked v0.9.25).
-	// Plugin-layer key enforcement was removed in 0.9.25 to follow the
-	// official plugin spec: management.handle sits solely behind the host
-	// management middleware, and every request reaching the plugin has
-	// already passed it. The extra management_key gate broke mutating calls
-	// (refresh/check-in/import) whenever the configured key differed from
-	// the credential the embedding UI actually forwards — CPAMP substitutes
-	// its saved CPA key, CPAMC sends the CPA secret — a guaranteed 403 on
-	// shared-key misalignment. The per-IP token bucket stays as a cheap
-	// abuse guard; capacity covers bulk "check in all" bursts.
 	if req.Method == http.MethodPost || mutatingManagementPath(path) {
 		if !allowManagementRequest(managementClientIP(req)) {
 			return okEnvelope(mgmtJSONResponse(http.StatusTooManyRequests, map[string]any{
@@ -221,60 +226,69 @@ func handleManagement(raw []byte) ([]byte, error) {
 	}
 
 	base := loadedManagementBasePath() + "/plugins/" + providerName
+	rel := path
+	if strings.HasPrefix(rel, loadedManagementBasePath()) {
+		rel = strings.TrimPrefix(rel, loadedManagementBasePath())
+	}
+	if strings.HasPrefix(rel, "/plugins/"+providerName) {
+		rel = strings.TrimPrefix(rel, "/plugins/"+providerName)
+	}
+	rel = "/" + strings.TrimPrefix(rel, "/")
+
 	switch {
-	case req.Method == http.MethodGet && path == base+"/accounts":
+	case req.Method == http.MethodGet && (rel == "/accounts" || path == base+"/accounts"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, buildDashboardEx(false, false)))
-	case req.Method == http.MethodPost && path == base+"/refresh":
+	case req.Method == http.MethodPost && (rel == "/refresh" || path == base+"/refresh"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, buildDashboardEx(true, true)))
-	case req.Method == http.MethodPost && path == base+"/checkin":
+	case req.Method == http.MethodPost && (rel == "/checkin" || path == base+"/checkin"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleManualCheckin(req)))
-	case req.Method == http.MethodPost && path == base+"/checkin/config":
+	case req.Method == http.MethodPost && (rel == "/checkin/config" || path == base+"/checkin/config"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleCheckinConfig(req)))
-	case req.Method == http.MethodGet && path == base+"/credits":
+	case req.Method == http.MethodGet && (rel == "/credits" || path == base+"/credits"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleCreditsQuery(req)))
-	case req.Method == http.MethodPost && path == base+"/import":
+	case req.Method == http.MethodPost && (rel == "/import" || path == base+"/import"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleImportAuth(req)))
-	case req.Method == http.MethodPost && path == base+"/trial":
+	case req.Method == http.MethodPost && (rel == "/trial" || path == base+"/trial"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleClaimTrial(req)))
-	case req.Method == http.MethodPost && path == base+"/select":
+	case req.Method == http.MethodPost && (rel == "/select" || path == base+"/select"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleSelectAuth(req)))
-	case req.Method == http.MethodPost && path == base+"/keepalive":
+	case req.Method == http.MethodPost && (rel == "/keepalive" || path == base+"/keepalive"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleKeepaliveNow(req)))
-	case req.Method == http.MethodGet && path == base+"/keepalive/status":
+	case req.Method == http.MethodGet && (rel == "/keepalive/status" || path == base+"/keepalive/status"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleKeepaliveStatus()))
-	case req.Method == http.MethodGet && path == base+"/tasks":
+	case req.Method == http.MethodGet && (rel == "/tasks" || path == base+"/tasks"):
 		result := handleGrowthTaskList(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && path == base+"/tasks/accept":
+	case req.Method == http.MethodPost && (rel == "/tasks/accept" || path == base+"/tasks/accept"):
 		result := handleGrowthTaskAccept(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && path == base+"/tasks/accept_all":
+	case req.Method == http.MethodPost && (rel == "/tasks/accept_all" || path == base+"/tasks/accept_all"):
 		result := handleGrowthTaskAcceptAll(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && path == base+"/tasks/claim":
+	case req.Method == http.MethodPost && (rel == "/tasks/claim" || path == base+"/tasks/claim"):
 		result := handleGrowthTaskClaim(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && path == base+"/tasks/light":
+	case req.Method == http.MethodPost && (rel == "/tasks/light" || path == base+"/tasks/light"):
 		return okEnvelope(mgmtJSONResponse(http.StatusGone, map[string]any{"error": "synthetic activity reporting is not supported; use real task progress and authorized actions", "code": "operation_retired"}))
-	case req.Method == http.MethodPost && path == base+"/tasks/travel":
+	case req.Method == http.MethodPost && (rel == "/tasks/travel" || path == base+"/tasks/travel"):
 		result := handleGrowthTravel(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && path == base+"/tasks/cancel":
+	case req.Method == http.MethodPost && (rel == "/tasks/cancel" || path == base+"/tasks/cancel"):
 		result := handleGrowthTaskCancel(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodGet && path == base+"/tasks/status":
+	case req.Method == http.MethodGet && (rel == "/tasks/status" || path == base+"/tasks/status"):
 		result := handleGrowthTaskStatus(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodGet && path == base+"/models":
+	case req.Method == http.MethodGet && (rel == "/models" || path == base+"/models"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsQuery(req)))
-	case req.Method == http.MethodPost && path == base+"/models/refresh":
+	case req.Method == http.MethodPost && (rel == "/models/refresh" || path == base+"/models/refresh"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsRefresh(req)))
-	case req.Method == http.MethodGet && path == base+"/models/catalog":
+	case req.Method == http.MethodGet && (rel == "/models/catalog" || path == base+"/models/catalog"):
 		models := handleGlobalModelCatalog()
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, map[string]any{"models": models, "count": len(models)}))
-	case req.Method == http.MethodGet && path == base+"/daily-quota":
+	case req.Method == http.MethodGet && (rel == "/daily-quota" || path == base+"/daily-quota"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleDailyQuotaQuery(req)))
-	case req.Method == http.MethodPost && path == base+"/daily-quota/reset":
+	case req.Method == http.MethodPost && (rel == "/daily-quota/reset" || path == base+"/daily-quota/reset"):
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleDailyQuotaReset(req)))
 	}
 	return okEnvelope(mgmtJSONResponse(http.StatusNotFound, map[string]any{"error": "not found: " + path}))
