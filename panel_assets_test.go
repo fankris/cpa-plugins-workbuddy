@@ -72,19 +72,12 @@ func TestPanelMenuAndJSAreRegistered(t *testing.T) {
 		t.Fatalf("decode management registration wire response: %v", err)
 	}
 	var foundPanelMenu, foundJS, foundLegacyPanelRoute bool
-	menuCount := 0
 	for _, r := range reg.Routes {
-		if r.Menu != "" {
-			menuCount++
-		}
-		if r.Path == "/plugins/workbuddy/panel" {
+		if r.Path == "/plugins/workbuddy/panel" && r.Menu == "WorkBuddy" {
 			foundLegacyPanelRoute = true
 		}
 	}
 	for _, r := range reg.Resources {
-		if r.Menu != "" {
-			menuCount++
-		}
 		if r.Path == "/panel" && r.Menu == "WorkBuddy" {
 			foundPanelMenu = true
 		}
@@ -92,17 +85,14 @@ func TestPanelMenuAndJSAreRegistered(t *testing.T) {
 			foundJS = true
 		}
 	}
-	if menuCount != 1 {
-		t.Errorf("host menu count = %d, want exactly one", menuCount)
-	}
-	if foundLegacyPanelRoute {
-		t.Error("the old /plugins/workbuddy/panel menu route must be removed")
+	if !foundLegacyPanelRoute {
+		t.Error("the /plugins/workbuddy/panel menu route must be registered in Routes for host compatibility")
 	}
 	if len(reg.Resources) != 3 {
 		t.Errorf("panel resources = %#v, want /panel menu, /panel.js and /panel-i18n.js scripts", reg.Resources)
 	}
 	if !foundPanelMenu {
-		t.Error("WorkBuddy menu must point to the new /panel resource route")
+		t.Error("WorkBuddy menu must also point to the /panel resource route for modern hosts")
 	}
 	if !foundJS {
 		t.Error("panel.js must remain a menu-less resource route")
