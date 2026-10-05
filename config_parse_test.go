@@ -98,16 +98,20 @@ func TestConfigAbsentKeysKeepDefaults(t *testing.T) {
 	configure(configYAMLEnvelope("login_region: cn\n"))
 
 	for name, got := range map[string]bool{
-		"checkin_auto":    checkinAutoValue(),
-		"lifecycle_auto":  lifecycleEnabled(),
-		"growth_auto":     growthAutoEnabled(),
-		"travel_auto":     travelAutoEnabled(),
-		"token_keepalive": keepaliveEnabled(),
+		"checkin_auto":   checkinAutoValue(),
+		"lifecycle_auto": lifecycleEnabled(),
 	} {
 		if !got {
 			t.Errorf("%s default must stay true when the key is absent", name)
 		}
 	}
+	if growthAutoEnabled() || travelAutoEnabled() || keepaliveEnabled() {
+		t.Fatal("rebuild must not start retired/optional automation by default")
+	}
+	if loadedSchedulerMode() != schedulerModeHost {
+		t.Fatal("default must follow the host selector")
+	}
+
 }
 
 func checkinAutoValue() bool {

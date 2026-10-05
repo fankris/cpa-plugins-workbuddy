@@ -277,13 +277,16 @@ func handleMethod(method string, request []byte) ([]byte, error) {
 	}
 	switch method {
 	case pluginabi.MethodPluginRegister, pluginabi.MethodPluginReconfigure:
+		if err := validateLifecycleConfig(request); err != nil {
+			return errorEnvelope("invalid_config", err.Error()), nil
+		}
 		configure(request)
 		// Loud one-liner so deployments can verify WHICH build is actually
 		// running: grep this in the CPA log after every plugin update.
 		// Only allowlisted field names survive the host's log formatter
 		// (logFieldOrder), so schema_version is inlined into the message
 		// instead of being sent as a field that would be dropped.
-		hostLog(logLevelInfo, fmt.Sprintf("plugin v%s registered (pluginabi schema %d)", version, pluginabi.SchemaVersion), map[string]any{
+		hostLog(logLevelInfo, fmt.Sprintf("plugin %s registered (pluginabi schema %d)", version, pluginabi.SchemaVersion), map[string]any{
 			"version":  version,
 			"provider": providerName,
 		})
@@ -420,7 +423,7 @@ type registrationCapability struct {
 }
 
 // version is injected at build time via -ldflags "-X main.version=...".
-var version = "v8.0.13-1.0.44"
+var version = "v8.0.15-1.0.45"
 
 func wbRegistration() registration {
 	return registration{
@@ -431,13 +434,12 @@ func wbRegistration() registration {
 			Author:           "Aiseek",
 			GitHubRepository: "https://github.com/fankris/cpa-plugins-workbuddy",
 			Logo:             pluginLogoURL,
-			// The native config surface deliberately contains only login selection.
-			// Advanced settings (including model catalogs and global disables)
-			// remain YAML-compatible; the editor PATCHes touched fields only,
-			// so hiding them does not overwrite existing deployment config.
+			// Native metadata is global, not per-browser locale. CPAMC owns
+			// touched-field saves; complex settings remain in its YAML editor.
 			ConfigFields: []pluginapi.ConfigField{
 				{Name: "login_region", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{"cn", "intl"}, Description: "首次登录/添加账号的授权区域。国内用户保持 cn（默认）；海外用户选 intl（WorkBuddy/CodeBuddy 国际服务）。只影响新登录，已有账号不变。"},
 				{Name: "login_platform", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{"CLI", "ide"}, Description: "首次登录的客户端类型。保持 CLI（默认，对应 WorkBuddy 应用）；需要 CodeBuddy IDE 登录时选 ide。只影响新登录。"},
+				{Name: "scheduler_mode", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{"host", "builtin", "off", "credits"}, Description: "host：跟随 CPA 当前调度策略；builtin：兼容模式，显式 round-robin；off：builtin 的历史别名，不是关闭请求；credits：插件选择面板活动账号，不是按余额排序。默认 host，旧配置的显式模式保留；切换即时生效，不改写宿主策略。"},
 			},
 		},
 		Capabilities: registrationCapability{

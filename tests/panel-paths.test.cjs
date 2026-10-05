@@ -1,6 +1,0 @@
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const src=fs.readFileSync(require.resolve('../panel.js'),'utf8');const ctx=vm.createContext({});
-vm.runInContext(src.slice(src.indexOf('const MANAGEMENT_SUFFIX'),src.indexOf('function panelPathContext')),ctx);
-test('legacy /panel and reverse proxy prefixes remain unchanged',()=>{assert.equal(ctx.managementAPIBase('/v0/resource/plugins/workbuddy/panel'),'/v0/management/plugins/workbuddy');assert.equal(ctx.managementAPIBase('/proxy/v0/resource/plugins/workbuddy/panel'),'/proxy/v0/management/plugins/workbuddy');});
-test('host declared management and resource paths plus external prefix',()=>{assert.equal(ctx.managementAPIBase('/proxy/custom/resources/workbuddy/panel',{resource:'/custom/resources/workbuddy',management:'/custom/api/plugins/workbuddy'}),'/proxy/custom/api/plugins/workbuddy');});
-test('invalid or off-origin injected paths never become API targets',()=>{for(const v of ['https://evil.test/x','//evil.test/x','/a/../b','/a?x=1','/a%2fb'])assert.equal(ctx.safeHostPath(v),'');assert.equal(ctx.managementAPIBase('/v0/resource/plugins/workbuddy/panel',{management:'//evil.test',resource:'/v0/resource/plugins/workbuddy'}),'/v0/management/plugins/workbuddy');});

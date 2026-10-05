@@ -1,0 +1,24 @@
+{
+  "result": "PASS",
+  "host": "v8.0.15",
+  "cpamc": "v1.25.3",
+  "checks": [
+    "official host loads and registers C ABI plugin",
+    "native ConfigFields registered",
+    "host middleware guards custom management routes",
+    "embedded HTML/JS/CSS served, unknown resources 404",
+    "synthetic reporting is explicitly retired",
+    "empty credential store; no fabricated account rows",
+    "native config save/readback preserves unknown keys; retired switch cannot re-enable reporting",
+    "task status latest-by-account contract works in real host",
+    "official CPAMC embedded page inherits remembered-key session",
+    "all four official language switches restore drafts/search after iframe remount",
+    "import draft never written to browser persistent/session storage",
+    "settings are read-only; editing delegates to native CPAMC"
+  ],
+  "pageErrors": [],
+  "realCredentialsUsed": false,
+  "realInferenceTested": false,
+  "realRewardClaimsTested": false,
+  "productionChanged": false
+}

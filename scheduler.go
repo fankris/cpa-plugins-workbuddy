@@ -1,19 +1,8 @@
-// scheduler.go implements the CPA scheduler.pick capability for workbuddy.
-//
-// Two modes, selected by the `scheduler_mode` config key:
-//
-//   - "builtin" (DEFAULT) — the plugin makes no routing decision at all and
-//     explicitly hands selection to CPA's built-in scheduler by returning
-//     DelegateBuiltin. This is not the same as returning Handled:false: the
-//     latter only means "this plugin declines", leaving whatever the host does
-//     next unspecified. DelegateBuiltin names the strategy outright, so the
-//     behaviour is pinned to CPA's own round-robin/fill-first implementation
-//     and the plugin cannot drift from it.
-//   - "credits" — the plugin picks the panel-selected active account (sticky,
-//     falling back when that account becomes exhausted/disabled).
-//
-// Non-workbuddy candidates are always deferred so other providers keep using
-// the built-in scheduler regardless of mode.
+// scheduler.go implements CPA scheduler.pick for WorkBuddy.
+// "host" is the rebuild default; "builtin" and "off" explicitly request round-robin.
+// "host" declines selection so CPA keeps its configured selector, including
+// fill-first/affinity behavior. "credits" retains the plugin's active-account
+// behavior. Explicit historical mode values remain supported; an omitted mode now follows CPA.
 package main
 
 import (
@@ -26,13 +15,9 @@ import (
 
 // scheduler_mode values.
 //
-// schedulerModeBuiltin is the default: defer to CPA's own scheduler by naming
-// the strategy. schedulerModeOff is retained as an accepted alias for
-// "builtin" so existing configs that spell it "off" keep working, but it is no
-// longer the internal default — "off" and "builtin" now behave identically
-// (both delegate), which removes the old ambiguity where "off" meant
-// Handled:false and left the host to decide.
+// Legacy values keep their prior meaning; host is explicitly opt-in.
 const (
+	schedulerModeHost    = "host"
 	schedulerModeBuiltin = "builtin"
 	schedulerModeOff     = "off"
 	schedulerModeCredits = "credits"
@@ -42,7 +27,7 @@ const (
 )
 
 var (
-	schedulerMode   = schedulerModeBuiltin
+	schedulerMode   = schedulerModeHost
 	schedulerModeMu sync.RWMutex
 )
 
@@ -65,27 +50,22 @@ func loadedSchedulerMode() string {
 	return schedulerMode
 }
 
-// handleSchedulerPick selects a workbuddy auth candidate, or delegates the
-// decision to CPA's built-in scheduler.
-//
-// scheduler_mode:
-//   - "builtin" / "off" (DEFAULT) → plugin declines and names the built-in
-//     strategy via DelegateBuiltin, so CPA's own scheduler picks. The plugin
-//     never influences which account serves a request in this mode.
-//   - "credits" → plugin picks via panel-selected active account (sticky, with
-//     fallback when that account becomes exhausted/disabled). If every WorkBuddy
-//     candidate is disabled, the plugin returns CPA terminal rejection instead
-//     of letting the built-in scheduler select a disabled account.
+// handleSchedulerPick keeps the configured host policy in host mode and
+// preserves existing builtin/off and credits behavior for compatibility.
 func handleSchedulerPick(raw []byte) ([]byte, error) {
 	var req pluginapi.SchedulerPickRequest
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, err
 	}
 
-	// Default path: hand selection to CPA's built-in scheduler explicitly.
-	// DelegateBuiltin (not Handled:false) is deliberate — it pins the strategy
-	// to CPA's implementation instead of leaving the outcome unspecified.
-	if loadedSchedulerMode() != schedulerModeCredits {
+	mode := loadedSchedulerMode()
+	if mode == schedulerModeHost {
+		// CPA v8.0.13 pickViaPluginScheduler returns unhandled here; its
+		// caller then invokes the configured selector for single/mixed routes.
+		return okEnvelope(pluginapi.SchedulerPickResponse{Handled: false})
+	}
+	// Preserve the historical explicitly named round-robin strategy.
+	if mode != schedulerModeCredits {
 		return okEnvelope(pluginapi.SchedulerPickResponse{
 			DelegateBuiltin: builtinStrategy,
 			Handled:         true,

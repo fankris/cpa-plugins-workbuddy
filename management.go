@@ -145,8 +145,6 @@ func managementRegistration() managementRegistrationResponse {
 	base := "/plugins/" + providerName
 	return managementRegistrationResponse{
 		Routes: []managementRoute{
-			// Register dashboard in Routes for older/transitional CPA hosts
-			{Method: http.MethodGet, Path: base + "/panel", Menu: "WorkBuddy", Description: "WorkBuddy dashboard: credits, check-in, plan, import."},
 			{Method: http.MethodGet, Path: base + "/accounts", Description: "List WorkBuddy accounts with credits, plan and check-in status."},
 			{Method: http.MethodPost, Path: base + "/refresh", Description: "Force refresh quota/cache for all accounts."},
 			{Method: http.MethodPost, Path: base + "/checkin", Description: "Manually check in one account (auth_index) or all."},
@@ -161,8 +159,9 @@ func managementRegistration() managementRegistrationResponse {
 			{Method: http.MethodPost, Path: base + "/tasks/accept", Description: "Accept one or more CN growth tasks."},
 			{Method: http.MethodPost, Path: base + "/tasks/accept_all", Description: "Accept all currently available CN growth tasks."},
 			{Method: http.MethodPost, Path: base + "/tasks/claim", Description: "Claim one completed CN growth task reward."},
-			{Method: http.MethodPost, Path: base + "/tasks/light", Description: "Accept + light (event-report) + claim all doable CN growth tasks for one account."},
+			{Method: http.MethodPost, Path: base + "/tasks/light", Description: "Retired: synthetic activity reporting is not supported (HTTP 410)."},
 			{Method: http.MethodPost, Path: base + "/tasks/travel", Description: "Run the CN buddy-travel cycle: claim when arrived, depart when idle."},
+			{Method: http.MethodPost, Path: base + "/tasks/cancel", Description: "Request cooperative cancellation of an accept-only run; cannot undo completed upstream actions."},
 			{Method: http.MethodGet, Path: base + "/tasks/status", Description: "Get growth task operation status."},
 			{Method: http.MethodGet, Path: base + "/models", Description: "Per-credential model list resolved through the same path host discovery uses (all accounts, or one with auth_index)."},
 			{Method: http.MethodPost, Path: base + "/models/refresh", Description: "Re-run model discovery for one credential (auth_index), bypassing the 5-minute cache."},
@@ -173,6 +172,7 @@ func managementRegistration() managementRegistrationResponse {
 		},
 		Resources: []resourceRoute{
 			{Path: "/panel", Menu: "WorkBuddy", Description: "WorkBuddy dashboard: credits, check-in, plan, import."},
+			{Path: "/panel.css", Description: "WorkBuddy panel styles."},
 			{Path: "/panel.js", Description: "WorkBuddy panel script."},
 			{Path: "/panel-i18n.js", Description: "WorkBuddy language resources."},
 		},
@@ -189,32 +189,18 @@ func handleManagement(raw []byte) ([]byte, error) {
 	}
 	path := strings.TrimRight(req.Path, "/")
 
-	// Panel assets handler across supported provider prefixes:
-	// - loadedResourceBasePath()
-	// - loadedManagementBasePath() + "/plugins/" + providerName
-	// - "/plugins/" + providerName
-	if req.Method == http.MethodGet {
-		prefixes := []string{
-			loadedResourceBasePath(),
-			loadedManagementBasePath() + "/plugins/" + providerName,
-			"/plugins/" + providerName,
+	// Browser UI resource routes (unauthenticated). The panel shell and its
+	// script are served here; each asset carries its own content type.
+	resPrefix := loadedResourceBasePath()
+	if req.Method == http.MethodGet && (path == resPrefix || strings.HasPrefix(path, resPrefix+"/")) {
+		sub := strings.TrimPrefix(path, resPrefix)
+		asset := servePanel(sub)
+		response := mgmtAssetResponse(asset.contentType, asset.body)
+		if asset.statusCode != 0 {
+			response.StatusCode = asset.statusCode
 		}
-		for _, pfx := range prefixes {
-			if path == pfx || strings.HasPrefix(path, pfx+"/") {
-				sub := strings.TrimPrefix(path, pfx)
-				clean := strings.TrimPrefix(sub, "/")
-				if clean == "" || clean == "panel" || clean == "panel.html" || strings.HasPrefix(clean, "panel/") || strings.HasSuffix(clean, "panel-i18n.js") || strings.HasSuffix(clean, "panel.js") {
-					asset := servePanel(sub)
-					response := mgmtAssetResponse(asset.contentType, asset.body)
-					if asset.statusCode != 0 {
-						response.StatusCode = asset.statusCode
-					}
-					return okEnvelope(response)
-				}
-			}
-		}
+		return okEnvelope(response)
 	}
-
 
 	// Rate limit for mutating endpoints (v0.6.31, limits reworked v0.9.25).
 	// Plugin-layer key enforcement was removed in 0.9.25 to follow the
@@ -235,67 +221,60 @@ func handleManagement(raw []byte) ([]byte, error) {
 	}
 
 	base := loadedManagementBasePath() + "/plugins/" + providerName
-	rel := path
-	if strings.HasPrefix(rel, loadedManagementBasePath()) {
-		rel = strings.TrimPrefix(rel, loadedManagementBasePath())
-	}
-	if strings.HasPrefix(rel, "/plugins/"+providerName) {
-		rel = strings.TrimPrefix(rel, "/plugins/"+providerName)
-	}
-	rel = "/" + strings.TrimPrefix(rel, "/")
-
 	switch {
-	case req.Method == http.MethodGet && (rel == "/accounts" || path == base+"/accounts"):
+	case req.Method == http.MethodGet && path == base+"/accounts":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, buildDashboardEx(false, false)))
-	case req.Method == http.MethodPost && (rel == "/refresh" || path == base+"/refresh"):
+	case req.Method == http.MethodPost && path == base+"/refresh":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, buildDashboardEx(true, true)))
-	case req.Method == http.MethodPost && (rel == "/checkin" || path == base+"/checkin"):
+	case req.Method == http.MethodPost && path == base+"/checkin":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleManualCheckin(req)))
-	case req.Method == http.MethodPost && (rel == "/checkin/config" || path == base+"/checkin/config"):
+	case req.Method == http.MethodPost && path == base+"/checkin/config":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleCheckinConfig(req)))
-	case req.Method == http.MethodGet && (rel == "/credits" || path == base+"/credits"):
+	case req.Method == http.MethodGet && path == base+"/credits":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleCreditsQuery(req)))
-	case req.Method == http.MethodPost && (rel == "/import" || path == base+"/import"):
+	case req.Method == http.MethodPost && path == base+"/import":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleImportAuth(req)))
-	case req.Method == http.MethodPost && (rel == "/trial" || path == base+"/trial"):
+	case req.Method == http.MethodPost && path == base+"/trial":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleClaimTrial(req)))
-	case req.Method == http.MethodPost && (rel == "/select" || path == base+"/select"):
+	case req.Method == http.MethodPost && path == base+"/select":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleSelectAuth(req)))
-	case req.Method == http.MethodPost && (rel == "/keepalive" || path == base+"/keepalive"):
+	case req.Method == http.MethodPost && path == base+"/keepalive":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleKeepaliveNow(req)))
-	case req.Method == http.MethodGet && (rel == "/keepalive/status" || path == base+"/keepalive/status"):
+	case req.Method == http.MethodGet && path == base+"/keepalive/status":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleKeepaliveStatus()))
-	case req.Method == http.MethodGet && (rel == "/tasks" || path == base+"/tasks"):
+	case req.Method == http.MethodGet && path == base+"/tasks":
 		result := handleGrowthTaskList(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && (rel == "/tasks/accept" || path == base+"/tasks/accept"):
+	case req.Method == http.MethodPost && path == base+"/tasks/accept":
 		result := handleGrowthTaskAccept(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && (rel == "/tasks/accept_all" || path == base+"/tasks/accept_all"):
+	case req.Method == http.MethodPost && path == base+"/tasks/accept_all":
 		result := handleGrowthTaskAcceptAll(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && (rel == "/tasks/claim" || path == base+"/tasks/claim"):
+	case req.Method == http.MethodPost && path == base+"/tasks/claim":
 		result := handleGrowthTaskClaim(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && (rel == "/tasks/light" || path == base+"/tasks/light"):
-		result := handleGrowthTaskLight(req)
-		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodPost && (rel == "/tasks/travel" || path == base+"/tasks/travel"):
+	case req.Method == http.MethodPost && path == base+"/tasks/light":
+		return okEnvelope(mgmtJSONResponse(http.StatusGone, map[string]any{"error": "synthetic activity reporting is not supported; use real task progress and authorized actions", "code": "operation_retired"}))
+	case req.Method == http.MethodPost && path == base+"/tasks/travel":
 		result := handleGrowthTravel(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodGet && (rel == "/tasks/status" || path == base+"/tasks/status"):
+	case req.Method == http.MethodPost && path == base+"/tasks/cancel":
+		result := handleGrowthTaskCancel(req)
+		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
+	case req.Method == http.MethodGet && path == base+"/tasks/status":
 		result := handleGrowthTaskStatus(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
-	case req.Method == http.MethodGet && (rel == "/models" || path == base+"/models"):
+	case req.Method == http.MethodGet && path == base+"/models":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsQuery(req)))
-	case req.Method == http.MethodPost && (rel == "/models/refresh" || path == base+"/models/refresh"):
+	case req.Method == http.MethodPost && path == base+"/models/refresh":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsRefresh(req)))
-	case req.Method == http.MethodGet && (rel == "/models/catalog" || path == base+"/models/catalog"):
+	case req.Method == http.MethodGet && path == base+"/models/catalog":
 		models := handleGlobalModelCatalog()
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, map[string]any{"models": models, "count": len(models)}))
-	case req.Method == http.MethodGet && (rel == "/daily-quota" || path == base+"/daily-quota"):
+	case req.Method == http.MethodGet && path == base+"/daily-quota":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleDailyQuotaQuery(req)))
-	case req.Method == http.MethodPost && (rel == "/daily-quota/reset" || path == base+"/daily-quota/reset"):
+	case req.Method == http.MethodPost && path == base+"/daily-quota/reset":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleDailyQuotaReset(req)))
 	}
 	return okEnvelope(mgmtJSONResponse(http.StatusNotFound, map[string]any{"error": "not found: " + path}))

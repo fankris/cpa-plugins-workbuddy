@@ -187,8 +187,8 @@ func TestConfigureModelsIntlGlobalDirectly(t *testing.T) {
 
 func TestRegistrationDescribesCustomStaticModels(t *testing.T) {
 	fields := wbRegistration().Metadata.ConfigFields
-	if len(fields) != 2 {
-		t.Fatalf("native config fields = %d, want exactly login_region and login_platform", len(fields))
+	if len(fields) != 3 {
+		t.Fatalf("native config fields = %d, want login_region, login_platform and scheduler_mode", len(fields))
 	}
 	if fields[0].Name != "login_region" || fields[1].Name != "login_platform" {
 		t.Fatalf("native config fields = [%s, %s], want [login_region login_platform]", fields[0].Name, fields[1].Name)

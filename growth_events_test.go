@@ -173,17 +173,12 @@ func TestNightWindow(t *testing.T) {
 	}
 }
 
+// Retired synthetic reporting cannot be enabled by a leftover configuration key.
 func TestGrowthAutoConfigToggle(t *testing.T) {
-	configure(configYAMLEnvelope(""))
-	if !growthAutoEnabled() {
-		t.Fatal("growth_auto must default to true (foolproof config)")
-	}
-	configure(configYAMLEnvelope("growth_auto: false"))
-	if growthAutoEnabled() {
-		t.Fatal("growth_auto: false must disable the automation")
-	}
-	configure(configYAMLEnvelope("growth_auto: True"))
-	if !growthAutoEnabled() {
-		t.Fatal("growth_auto: True must re-enable")
+	for _, raw := range []string{"", "growth_auto: false", "growth_auto: True"} {
+		configure(configYAMLEnvelope(raw))
+		if growthAutoEnabled() {
+			t.Fatal("retired reporting was enabled")
+		}
 	}
 }

@@ -1,10 +1,18 @@
-.PHONY: build test lint clean release tag
+.DEFAULT_GOAL := build
+.PHONY: build frontend frontend-test test lint clean release tag
 
 GO ?= go
 VERSION ?= $(shell cat VERSION 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo "dev")
 RELEASE_TARGETS ?= linux/amd64 linux/arm64
 TAG_VERSION = $(if $(filter v%,$(VERSION)),$(VERSION),v$(VERSION))
 LDFLAGS := -X main.version=$(VERSION)
+
+# Rebuild the embedded browser assets using pinned npm dependencies.
+frontend:
+	cd frontend && npm ci --no-audit --no-fund && npm run typecheck && npm run build
+
+frontend-test:
+	node --test tests/frontend-contracts.mjs tests/native-config-contract.test.cjs
 
 # Default target: build the plugin for the current platform.
 build:

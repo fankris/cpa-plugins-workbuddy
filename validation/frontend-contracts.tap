@@ -1,0 +1,150 @@
+TAP version 13
+# Subtest: unknown response
+ok 1 - unknown response
+  ---
+  duration_ms: 1.307178
+  ...
+# Subtest: pending is not success
+ok 2 - pending is not success
+  ---
+  duration_ms: 0.121919
+  ...
+# Subtest: cooperative cancel pending
+ok 3 - cooperative cancel pending
+  ---
+  duration_ms: 0.088548
+  ...
+# Subtest: confirmed cancellation
+ok 4 - confirmed cancellation
+  ---
+  duration_ms: 0.146308
+  ...
+# Subtest: repeat reward
+ok 5 - repeat reward
+  ---
+  duration_ms: 0.137955
+  ...
+# Subtest: skipped token refresh
+ok 6 - skipped token refresh
+  ---
+  duration_ms: 0.084856
+  ...
+# Subtest: single failure
+ok 7 - single failure
+  ---
+  duration_ms: 0.115419
+  ...
+# Subtest: mixed outcome
+ok 8 - mixed outcome
+  ---
+  duration_ms: 0.176158
+  ...
+# Subtest: nested bulk failure
+ok 9 - nested bulk failure
+  ---
+  duration_ms: 0.225127
+  ...
+# Subtest: partially accepted run
+ok 10 - partially accepted run
+  ---
+  duration_ms: 0.321129
+  ...
+# Subtest: check-in already complete
+ok 11 - check-in already complete
+  ---
+  duration_ms: 0.159331
+  ...
+# Subtest: normal completion
+ok 12 - normal completion
+  ---
+  duration_ms: 0.094785
+  ...
+# Subtest: v8 native path and v0 extension preserve reverse proxy prefix
+ok 13 - v8 native path and v0 extension preserve reverse proxy prefix
+  ---
+  duration_ms: 1.563137
+  ...
+# Subtest: host resource path can be customized without moving extension namespace
+ok 14 - host resource path can be customized without moving extension namespace
+  ---
+  duration_ms: 0.382074
+  ...
+# Subtest: unsafe paths rejected
+ok 15 - unsafe paths rejected
+  ---
+  duration_ms: 0.487175
+  ...
+# Subtest: credential fields recursively redacted
+ok 16 - credential fields recursively redacted
+  ---
+  duration_ms: 0.971458
+  ...
+# Subtest: model config writes preserve opaque fields and target only plugin object
+ok 17 - model config writes preserve opaque fields and target only plugin object
+  ---
+  duration_ms: 2.200137
+  ...
+# Subtest: failed transport after mutation is unconfirmed, never an automatic retry
+ok 18 - failed transport after mutation is unconfirmed, never an automatic retry
+  ---
+  duration_ms: 0.957764
+  ...
+# Subtest: failed task terminal snapshot remains inspectable
+ok 19 - failed task terminal snapshot remains inspectable
+  ---
+  duration_ms: 0.347171
+  ...
+# Subtest: every new UI message has four nonempty translations
+ok 20 - every new UI message has four nonempty translations
+  ---
+  duration_ms: 0.831487
+  ...
+# Subtest: new bundle uses no synthetic activity route or duplicate native settings editor
+ok 21 - new bundle uses no synthetic activity route or duplicate native settings editor
+  ---
+  duration_ms: 0.376302
+  ...
+# Subtest: official touched-field save keeps unknown fields and modifies only one plugin object
+ok 22 - official touched-field save keeps unknown fields and modifies only one plugin object
+  ---
+  duration_ms: 3.323499
+  ...
+# Subtest: null clears one field; empty patch retains everything
+ok 23 - null clears one field; empty patch retains everything
+  ---
+  duration_ms: 1.033767
+  ...
+# Subtest: edited objects replace, rather than recursively merging stale keys
+ok 24 - edited objects replace, rather than recursively merging stale keys
+  ---
+  duration_ms: 1.093434
+  ...
+# Subtest: read failure never writes
+ok 25 - read failure never writes
+  ---
+  duration_ms: 1.281412
+  ...
+# Subtest: host connection change aborts before writing
+ok 26 - host connection change aborts before writing
+  ---
+  duration_ms: 1.634808
+  ...
+# Subtest: write failure propagates; no optimistic success assumed
+ok 27 - write failure propagates; no optimistic success assumed
+  ---
+  duration_ms: 0.91871
+  ...
+# Subtest: concurrent read/merge/PUT can lose edits: single-editor limit is real
+ok 28 - concurrent read/merge/PUT can lose edits: single-editor limit is real
+  ---
+  duration_ms: 0.862274
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 28
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 207.029146

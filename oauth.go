@@ -373,10 +373,7 @@ func handleRefreshAuth(raw []byte) ([]byte, error) {
 	if tok.Domain != "" {
 		sa.Auth.Domain = tok.Domain
 	}
-	sa.Auth.ExpiresAt = preserveExpiry(
-		time.Now().Add(time.Duration(tok.ExpiresIn)*time.Second).Unix(),
-		sa.Auth.ExpiresAt,
-	)
+	sa.Auth.ExpiresAt = refreshedExpiry(tok.ExpiresIn, sa.Auth.ExpiresAt, time.Now())
 	// No explicit host.auth.save here: the host's auth Manager persists the
 	// refreshed credential itself after Refresh returns (conductor.go
 	// refreshAuth → m.Update → persist). Writing from the plugin too would
@@ -409,4 +406,12 @@ func toAuthDataForRefresh(sa *storedAuth) pluginapi.AuthData {
 	ad.FileName = "" // let host backfill original
 	ad.ID = ""       // let host compute from path (prevents ID mismatch dupes)
 	return ad
+}
+
+// An omitted/non-positive expiresIn does not invent an immediate expiry.
+func refreshedExpiry(expiresIn int64, previous int64, now time.Time) int64 {
+	if expiresIn <= 0 {
+		return previous
+	}
+	return now.Add(time.Duration(expiresIn) * time.Second).Unix()
 }

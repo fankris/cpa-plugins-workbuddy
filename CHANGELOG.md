@@ -1,31 +1,18 @@
+# Independent rebuild — v8.0.15-1.0.45 (2026-10-05)
+
+- Replaced the old panel with a Manager-led React/TypeScript four-workspace UI.
+- Pinned official CPA 8.0.15 SDK/schema 6 and tested real loading with CPAMC 1.25.3.
+- Delegated settings/OAuth/logs and credential actions to native host capabilities.
+- Added same-origin locale/theme following and transient state restoration through CPAMC iframe remounts.
+- Preserved legitimate tasks with accept-only runs, cooperative cancellation and truthful/redacted outcomes; retired synthetic reporting.
+- Changed omitted scheduler mode to host; keepalive/travel now opt-in. Explicit compatibility modes remain. See README_CN.md before upgrading.
+- Final isolated regression passed; real account business E2E and production deployment remain untested.
+
+---
+
+## Historical upstream/development changelog (not current acceptance evidence)
+
 # Changelog
-
-## v8.0.13-1.0.44 — 2026-10-05
-
-### Universal panel routing and host compatibility fix
-
-- Support universal asset dispatch across all routing schemes (`/v0/resource/plugins/workbuddy`, `/v0/management/plugins/workbuddy`, and `/plugins/workbuddy`) so panel HTML, scripts, and language resources reliably render across diverse CPA host deployments and reverse proxies.
-- Dual-track menu registration: maintain the modern CPA v8 `Resources` contract (`/panel` with menu) while retaining the legacy `Routes` menu declaration for full backward compatibility with older hosts.
-- Normalize management API subpaths (`/accounts`, `/credits`, etc.) so mutating and querying endpoints resolve regardless of gateway prefix stripping.
-- Serve panel assets with explicit `Cache-Control: no-cache, no-store, must-revalidate` to prevent stale webview cache issues.
-
-## v8.0.13-1.0.43 — 2026-10-04
-
-### Modern CPA Resources contract alignment
-
-- Remove legacy `Routes` menu declaration and legacy management panel fallbacks.
-- Strictly adhere to the modern CLIProxyAPI v8 resource contract: the dashboard menu and browser assets (`/panel`, `/panel.js`, `/panel-i18n.js`) are declared exclusively via `Resources`.
-- All web panel assets are served under host-delegated unauthenticated resource routing (`loadedResourceBasePath()`).
-
-## v8.0.13-1.0.42 — 2026-10-04
-
-### UI localization, host path security, and test isolation
-
-- Add `panel-i18n.js` providing multi-language support (zh-CN, zh-TW, en, ru) for static UI text, aria attributes, busy states, and density labels.
-- Align with CPAMC `cli-proxy-language` preferences for same-origin embedded panels, with explicit graceful fallback for cross-origin contexts.
-- Enforce host-declared management and resource paths with strict validation and sanitization, rejecting unverified external/injected paths.
-- Add loopback-only restrictions for test direct HTTP transports to prevent any outbound requests during test execution.
-- Add release failure guards to ensure build failures fail closed without publishing empty or broken archives.
 
 ## v8.0.13-1.0.41 — 2026-10-04
 

@@ -389,18 +389,18 @@ func servePanel(sub string) panelAsset {
 	if idx := strings.Index(sub, "?"); idx != -1 {
 		sub = sub[:idx]
 	}
-	sub = strings.TrimSpace(sub)
-	clean := "/" + strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(sub, "/"), "panel/"), "/")
-	if clean == "/" || clean == "/panel" || clean == "/panel.html" || sub == "" || sub == "/" || sub == "/panel" || sub == "/panel.html" {
+	switch sub {
+	case "", "/", "/panel", "/panel.html":
 		return panelAsset{contentType: "text/html; charset=utf-8", body: localizedPanelHTML()}
-	}
-	if clean == "/panel-i18n.js" || sub == "/panel-i18n.js" || strings.HasSuffix(sub, "/panel-i18n.js") {
+	case "/panel-i18n.js":
 		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelI18N}
-	}
-	if clean == "/panel.js" || sub == "/panel.js" || strings.HasSuffix(sub, "/panel.js") {
+	case "/panel.css":
+		return panelAsset{contentType: "text/css; charset=utf-8", body: panelCSS}
+	case "/panel.js":
 		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelJS}
+	default:
+		return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}
 	}
-	return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}
 }
 
 //go:embed panel.html
@@ -418,3 +418,6 @@ func localizedPanelHTML() []byte {
 	page = strings.ReplaceAll(page, "__WB_RESOURCE_BASE__", html.EscapeString(loadedResourceBasePath()))
 	return []byte(page)
 }
+
+//go:embed panel.css
+var panelCSS []byte

@@ -59,8 +59,8 @@ func TestZeroConfigDefaultsEverythingOn(t *testing.T) {
 	if !lifecycleEnabled() {
 		t.Fatal("lifecycle_auto default should be true")
 	}
-	if !keepaliveEnabled() {
-		t.Fatal("token_keepalive default should be true")
+	if keepaliveEnabled() {
+		t.Fatal("plugin keepalive must be opt-in; CPA owns credential refresh")
 	}
 	if got := loadedLoginRegion(); got != regionCN {
 		t.Fatalf("login_region default = %q want cn", got)

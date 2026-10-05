@@ -35,10 +35,10 @@ import (
 // from checkinHours so the two cadences can evolve independently.
 var keepaliveHours = []int{22}
 
-// keepaliveAuto gates the daily refresh. Default true; configurable via
+// keepaliveAuto gates the daily refresh. Default false (CPA owns refresh); configurable via
 // plugin config key "token_keepalive" (config_yaml line "token_keepalive: false").
 var (
-	keepaliveAuto   = true
+	keepaliveAuto   = false
 	keepaliveAutoMu sync.RWMutex
 	refreshLocks    sync.Map // auth_index -> *sync.Mutex
 )
@@ -136,10 +136,7 @@ func refreshOneAuth(authIndex, authID string) (string, error) {
 	if tok.Domain != "" {
 		sa.Auth.Domain = tok.Domain
 	}
-	sa.Auth.ExpiresAt = preserveExpiry(
-		time.Now().Add(time.Duration(tok.ExpiresIn)*time.Second).Unix(),
-		sa.Auth.ExpiresAt,
-	)
+	sa.Auth.ExpiresAt = refreshedExpiry(tok.ExpiresIn, sa.Auth.ExpiresAt, time.Now())
 	if err := persistAuthTokens(authIndex, sa); err != nil {
 		return "error", fmt.Errorf("persist: %w", err)
 	}

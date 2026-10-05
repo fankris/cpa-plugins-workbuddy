@@ -1,0 +1,94 @@
+{
+  "build": "v8.0.15-2.0.0-rebuild.1",
+  "independent_unreleased_build": true,
+  "date": "2026-10-05",
+  "references": {
+    "cpa": {
+      "commit": "ba6992e30862e83e07b2a0d4e23de6bed6d1eb68",
+      "source": "https://github.com/fankris/cpa-plugins-workbuddy.git"
+    },
+    "manager": {
+      "commit": "14ad60f0629c60851f83c6a6f55a25d7e3f8dfb3",
+      "source": "https://github.com/ithtelab/workbuddy-manager.git",
+      "version": "v1.0.79"
+    },
+    "panel": {
+      "commit": "15a6fc94ecf9936bd4f70e1c503d9bef6aab2ad9",
+      "source": "https://github.com/linguo2625469/workbuddy2api-panel.git"
+    },
+    "sdk": {
+      "source": "https://github.com/router-for-me/CLIProxyAPI",
+      "version": "v8.0.15",
+      "commit": "a4acc9f752bd46571f737a10c04bf413656ab06b",
+      "release_url": "https://github.com/router-for-me/CLIProxyAPI/releases/tag/v8.0.15",
+      "published_at": "2026-10-04T22:29:27Z",
+      "verified_latest_stable_on": "2026-10-05"
+    },
+    "cpamc": {
+      "source": "https://github.com/router-for-me/Cli-Proxy-API-Management-Center",
+      "version": "v1.25.3",
+      "commit": "ee79a794526a30c03748a8864a9ac6589a31833b",
+      "release_url": "https://github.com/router-for-me/Cli-Proxy-API-Management-Center/releases/tag/v1.25.3",
+      "published_at": "2026-10-03T13:44:21Z",
+      "verified_latest_stable_on": "2026-10-05"
+    }
+  },
+  "binary": {
+    "path": "workbuddy.so",
+    "sha256": "3079b69305f4a6347a7f0dc9675bc49a3fe4242d7f87ba527fe45bdb285a2e8d",
+    "platform": "linux/amd64",
+    "minimum_glibc": "2.34",
+    "sdk_abi_schema": 6,
+    "toolchain": "go1.26.0",
+    "command": "CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags '-X main.version=v8.0.15-2.0.0-rebuild.1' -o artifacts/workbuddy.so .",
+    "go_module_build_info": "artifacts/workbuddy.so: go1.26.0\n\tpath\tgithub.com/fankris/cpa-plugins-workbuddy\n\tmod\tgithub.com/fankris/cpa-plugins-workbuddy\t(devel)\t\n\tdep\tgithub.com/router-for-me/CLIProxyAPI/v8\tv8.0.15\th1:lda65BCT18VJzzGqeq3L8DNCU9YcMG3yzLzDVBx5JpA=\n\tdep\tgopkg.in/yaml.v3\tv3.0.1\th1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=\n\tbuild\t-buildmode=c-shared\n\tbuild\t-compiler=gc\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=1\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+  },
+  "frontend_runtime": [
+    {
+      "name": "react",
+      "version": "19.2.0",
+      "license": "MIT"
+    },
+    {
+      "name": "react-dom",
+      "version": "19.2.0",
+      "license": "MIT"
+    },
+    {
+      "name": "scheduler",
+      "version": "0.27.0",
+      "license": "MIT"
+    },
+    {
+      "name": "lucide-react",
+      "version": "0.468.0",
+      "license": "ISC"
+    }
+  ],
+  "npm_lock_sha256": "1dcb2ca24682c0d25ca54c43a26df54fe932d360bd575d3211a9deea320bbf77",
+  "go_sum_sha256": "1570eee49c648fae1ae7fd2b8882df66108880306c76005191ddd07abae2781b",
+  "license_files_sha256": {
+    "licenses/CPA-MIT.txt": "879792e89cf1bdd6a8d446033ec87e30496f97dcafc4656dc53f641509b346a6",
+    "licenses/CPAMC-MIT.txt": "48fc0d19e5d0918e7e2a7df2deed33b167d9aad1aebb07891a32a8e6f71f80ee",
+    "licenses/GO-BSD.txt": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+    "licenses/Lucide-ISC.txt": "1e7290b35280a048667bbf0ebabac1c7fd52a75300e8b2946ac165715997f2bc",
+    "licenses/Manager-MIT.txt": "2c582822caf0435306666448b4fc26f1e2b4fb15e0e0078403bccd4e0b4e3fd0",
+    "licenses/Panel-reference-MIT.txt": "ee534aff523ff8b8d40eb4a5d37ca37534df4e6b5dc9f7900a0ef1182fc93189",
+    "licenses/React-MIT.txt": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+    "licenses/ReactDOM-MIT.txt": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+    "licenses/Scheduler-MIT.txt": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+    "licenses/YAML-LICENSE.txt": "d18f6323b71b0b768bb5e9616e36da390fbd39369a81807cca352de4e4e6aa0b",
+    "LICENSE": "e474289cd79a8b49e5df604b4b9832cb05bc40005ca777c1e6c04b791c1f6639"
+  },
+  "not_distributed": [
+    "test management key",
+    "host config",
+    "auth files",
+    "raw host log",
+    "node_modules",
+    "official CPA binary",
+    "CPAMC full app",
+    "toolchains",
+    "historical documents"
+  ]
+}

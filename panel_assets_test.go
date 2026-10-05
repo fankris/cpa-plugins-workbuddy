@@ -34,7 +34,7 @@ func TestServePanelAssets(t *testing.T) {
 	if len(js.body) == 0 {
 		t.Error("panel.js is empty")
 	}
-	if !strings.Contains(string(js.body), "loadSettings") {
+	if !strings.Contains(string(js.body), "WorkBuddyPanel") {
 		t.Error("panel.js does not look like the panel script")
 	}
 }
@@ -71,28 +71,41 @@ func TestPanelMenuAndJSAreRegistered(t *testing.T) {
 	if err := json.Unmarshal(raw, &reg); err != nil {
 		t.Fatalf("decode management registration wire response: %v", err)
 	}
-	var foundLegacyRoute, foundResourceMenu, foundJS bool
+	var foundPanelMenu, foundJS, foundLegacyPanelRoute bool
+	menuCount := 0
 	for _, r := range reg.Routes {
-		if r.Path == "/plugins/workbuddy/panel" && r.Menu == "WorkBuddy" {
-			foundLegacyRoute = true
+		if r.Menu != "" {
+			menuCount++
+		}
+		if r.Path == "/plugins/workbuddy/panel" {
+			foundLegacyPanelRoute = true
 		}
 	}
 	for _, r := range reg.Resources {
+		if r.Menu != "" {
+			menuCount++
+		}
 		if r.Path == "/panel" && r.Menu == "WorkBuddy" {
-			foundResourceMenu = true
+			foundPanelMenu = true
 		}
 		if r.Path == "/panel.js" && r.Menu == "" {
 			foundJS = true
 		}
 	}
-	if !foundLegacyRoute {
-		t.Error("the /plugins/workbuddy/panel menu route must be registered in Routes for older CPA host compatibility")
+	if menuCount != 1 {
+		t.Errorf("host menu count = %d, want exactly one", menuCount)
 	}
-	if !foundResourceMenu {
-		t.Error("the /panel menu route must also be registered in Resources for modern CPA host compatibility")
+	if foundLegacyPanelRoute {
+		t.Error("the old /plugins/workbuddy/panel menu route must be removed")
+	}
+	if len(reg.Resources) != 4 {
+		t.Errorf("panel resources = %#v, want /panel menu, /panel.js /panel-i18n.js compatibility asset and /panel.css", reg.Resources)
+	}
+	if !foundPanelMenu {
+		t.Error("WorkBuddy menu must point to the new /panel resource route")
 	}
 	if !foundJS {
-		t.Error("panel.js must remain registered in Resources")
+		t.Error("panel.js must remain a menu-less resource route")
 	}
 }
 
@@ -102,6 +115,7 @@ func TestManagementServesPanelAssets(t *testing.T) {
 	for _, tc := range []struct{ path, wantType string }{
 		{"/v0/resource/plugins/workbuddy/panel", "text/html"},
 		{"/v0/resource/plugins/workbuddy/panel.js", "javascript"},
+		{"/v0/resource/plugins/workbuddy/panel.css", "text/css"},
 		{"/v0/resource/plugins/workbuddy/panel-i18n.js", "javascript"},
 	} {
 		req := pluginapi.ManagementRequest{Method: http.MethodGet, Path: tc.path}
@@ -136,56 +150,36 @@ func TestManagementServesPanelAssets(t *testing.T) {
 	}
 }
 
+// The rebuilt panel mounts a modular React app; browser tests cover navigation,
+// filtering, pagination, state preservation and server eligibility instead of
+// pinning legacy DOM IDs and innerHTML implementation details.
 func TestPanelWorkspaceNavigationAndCompatibility(t *testing.T) {
-	html := string(servePanel("/panel").body)
-	js := string(servePanel("/panel.js").body)
-	for _, want := range []string{
-		`role="tablist"`, `id="workspaceAccountsTab"`, `id="workspaceModelsTab"`,
-		`id="workspaceAutomationTab"`, `id="accountsView"`, `id="settingsModels"`,
-		`id="settingsAutomation"`, `id="accountSearch"`, `id="staleNotice"`,
-	} {
-		if !strings.Contains(html, want) {
-			t.Errorf("panel workspace is missing %s", want)
+	page := string(servePanel("/panel").body)
+	for _, marker := range []string{`<title>WorkBuddy 面板</title>`, `id="root"`, `data-panel-version="2"`, `panel.css`, `panel.js`} {
+		if !strings.Contains(page, marker) {
+			t.Fatalf("missing rebuilt shell marker %s", marker)
 		}
 	}
-	modelsAt := strings.Index(html, `id="settingsModels"`)
-	catalogAt := strings.Index(html, `id="globalModelsBody"`)
-	automationAt := strings.Index(html, `id="settingsAutomation"`)
-	perAccountModelsAt := strings.Index(html, `id="modelsModal"`)
-	if modelsAt < 0 || catalogAt < modelsAt || automationAt < catalogAt {
-		t.Fatal("global model controls must live inside the model-management workspace")
+	if strings.Contains(page, "onclick=") {
+		t.Fatal("shell must not contain inline business handlers")
 	}
-	if perAccountModelsAt < 0 || perAccountModelsAt < catalogAt || strings.Contains(html[perAccountModelsAt:], `id="globalModelsBody"`) {
-		t.Fatal("per-account model dialog must remain separate from global model controls")
+	if !strings.Contains(string(servePanel("/panel.js").body), "WorkBuddyPanel") {
+		t.Fatal("rebuilt bundle missing")
 	}
-	if strings.Contains(html, `id="settingsModal"`) {
-		t.Fatal("workspace navigation must not add a second host-style settings menu/modal")
-	}
-	for _, want := range []string{"function switchWorkspace(", "function handleWorkspaceKeydown(", "function openDialog(", "configMutationRevision", "settingsWriteQueue"} {
-		if !strings.Contains(js, want) {
-			t.Errorf("panel script is missing %s", want)
-		}
-	}
-	if strings.Contains(js, "materializeSettingDefaults") {
-		t.Fatal("opening automation settings must not materialize default values into user config")
+	if !strings.Contains(servePanel("/panel.css").contentType, "text/css") {
+		t.Fatal("stylesheet is not served")
 	}
 }
 
 func TestAccountPanelKeepsFullListAndServerEligibility(t *testing.T) {
+	// This is only a build-level guard. Functional assertions live in rebuild-browser.mjs.
 	js := string(servePanel("/panel.js").body)
-	if !strings.Contains(js, `grid.innerHTML=lastAccounts.map(card).join("");`) {
-		t.Fatal("account refresh must render the canonical full account list before filtering")
+	for _, marker := range []string{"trial_eligible", "trial_claimed", "auth_index", "models_enabled", "/credentials/status", "outcomeUnknown"} {
+		if !strings.Contains(js, marker) {
+			t.Fatalf("missing account/API contract %s", marker)
+		}
 	}
-	if strings.Contains(js, `accountsForFilter(lastAccounts).map(card)`) {
-		t.Fatal("filtered account collections must not replace the canonical card list")
-	}
-	if !strings.Contains(js, `const isWorkBuddy=!!a.trial_eligible||!!a.trial_claimed;`) {
-		t.Fatal("trial actions must rely on service eligibility returned by the host")
-	}
-	if !strings.Contains(js, `a.name,a.email,a.uid`) {
-		t.Fatal("account search metadata must include email as advertised")
-	}
-	if !strings.Contains(js, `if(!response.ok)`) || !strings.Contains(js, `function isCheckinAlreadyResult(result)`) {
-		t.Fatal("panel API errors and check-in outcomes must use explicit structured handling")
+	if strings.Contains(js, "/tasks/light") {
+		t.Fatal("synthetic activity reporting must not be exposed by the new UI")
 	}
 }

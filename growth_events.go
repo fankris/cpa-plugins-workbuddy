@@ -679,10 +679,10 @@ func growthAccountTag(sa *storedAuth) string {
 // travelAuto toggles the buddy-travel half of growth automation independently
 // of task lighting (some users only want the tasks, or vice versa).
 var (
-	growthAuto   = true
+	growthAuto   = false
 	growthAutoMu sync.RWMutex
 
-	travelAuto   = true
+	travelAuto   = false
 	travelAutoMu sync.RWMutex
 )
 

@@ -599,12 +599,12 @@ func configure(raw []byte) {
 	// Parse config without holding any lock (fixes nested-lock hazard).
 	nextCheckinAuto := true
 	nextLifecycleAuto := true
-	nextSchedulerMode := schedulerModeBuiltin // reset to default on reconfigure
-	nextKeepaliveAuto := true
+	nextSchedulerMode := schedulerModeHost // reset to default on reconfigure
+	nextKeepaliveAuto := false
 	nextLoginPlatform := "CLI"
 	nextLoginRegion := regionCN
-	nextGrowthAuto := true
-	nextTravelAuto := true
+	nextGrowthAuto := false
+	nextTravelAuto := false
 
 	nextPinned := map[string][]string{}
 	var nextGloballyDisabledModels []string
@@ -630,10 +630,17 @@ func configure(raw []byte) {
 
 			nextCheckinAuto = cfg.boolValue("checkin_auto", nextCheckinAuto)
 			nextLifecycleAuto = cfg.boolValue("lifecycle_auto", nextLifecycleAuto)
-			nextGrowthAuto = cfg.boolValue("growth_auto", nextGrowthAuto)
+			// Synthetic activity reporting is retired; legacy config is ignored.
+			nextGrowthAuto = false
 			nextTravelAuto = cfg.boolValue("travel_auto", nextTravelAuto)
 			nextKeepaliveAuto = cfg.boolValue("token_keepalive", nextKeepaliveAuto)
 
+			if cfg.equalsFold("scheduler_mode", schedulerModeBuiltin, schedulerModeOff) {
+				nextSchedulerMode = schedulerModeBuiltin
+			}
+			if cfg.equalsFold("scheduler_mode", schedulerModeHost) {
+				nextSchedulerMode = schedulerModeHost
+			}
 			if cfg.equalsFold("scheduler_mode", schedulerModeCredits) {
 				nextSchedulerMode = schedulerModeCredits
 			}

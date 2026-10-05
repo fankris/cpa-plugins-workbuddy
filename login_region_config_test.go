@@ -9,8 +9,8 @@ import (
 
 func TestRegistrationExposesAuthorizationRegions(t *testing.T) {
 	fields := wbRegistration().Metadata.ConfigFields
-	if len(fields) != 2 {
-		t.Fatalf("ConfigFields = %d, want exactly 2", len(fields))
+	if len(fields) != 3 {
+		t.Fatalf("ConfigFields = %d, want exactly 3", len(fields))
 	}
 	if fields[0].Name != "login_region" || fields[1].Name != "login_platform" {
 		t.Fatalf("ConfigFields = [%s, %s], want [login_region login_platform]", fields[0].Name, fields[1].Name)

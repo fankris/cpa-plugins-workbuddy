@@ -24,12 +24,14 @@ var taskRunsByAuth sync.Map // auth_index -> *growthTaskRun
 var taskRunGate sync.Mutex
 
 type growthTaskRun struct {
-	ID        string   `json:"run_id"`
-	AuthIndex string   `json:"auth_index"`
-	Status    string   `json:"status"`
-	Accepted  int      `json:"accepted"`
-	Failed    []string `json:"failed,omitempty"`
-	Error     string   `json:"error,omitempty"`
+	ID              string   `json:"run_id"`
+	AuthIndex       string   `json:"auth_index"`
+	Status          string   `json:"status"`
+	Accepted        int      `json:"accepted"`
+	Failed          []string `json:"failed,omitempty"`
+	Error           string   `json:"error,omitempty"`
+	Kind            string   `json:"kind,omitempty"`
+	CancelRequested bool     `json:"cancel_requested"`
 	// Light carries the /tasks/light summary (lit/claimed/desktop-only) once
 	// the lighting pass finishes; nil for accept-only runs.
 	Light      *growthLightResult `json:"light,omitempty"`
@@ -81,7 +83,7 @@ func taskRunSnapshot(id string) map[string]any {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.Status == "running" || r.ExpiresAt.IsZero() || time.Now().Before(r.ExpiresAt) {
-		result := map[string]any{"run_id": r.ID, "auth_index": r.AuthIndex, "status": r.Status, "accepted": r.Accepted, "failed": append([]string(nil), r.Failed...), "started_at": r.StartedAt, "finished_at": r.FinishedAt}
+		result := map[string]any{"run_id": r.ID, "auth_index": r.AuthIndex, "status": r.Status, "accepted": r.Accepted, "failed": append([]string(nil), r.Failed...), "started_at": r.StartedAt, "finished_at": r.FinishedAt, "kind": r.Kind, "cancel_requested": r.CancelRequested}
 		if r.Error != "" {
 			result["error"] = r.Error
 		}
@@ -134,6 +136,10 @@ func runAcceptAll(authIndex string, sa *storedAuth, r *growthTaskRun) {
 	lock := growthTaskLockFor(authIndex)
 	lock.Lock()
 	defer lock.Unlock()
+	if taskRunCanceled(r) {
+		finishTaskRun(r, "canceled", "")
+		return
+	}
 	tasks, err := listGrowthTasks(sa)
 	if err != nil {
 		finishTaskRun(r, "failed", safeManagementError(err))
@@ -142,6 +148,10 @@ func runAcceptAll(authIndex string, sa *storedAuth, r *growthTaskRun) {
 	codes := acceptedGrowthTaskCodes(tasks)
 	failed := make([]string, 0)
 	for start := 0; start < len(codes); start += taskAcceptBatchSize {
+		if taskRunCanceled(r) {
+			finishTaskRun(r, "canceled", "")
+			return
+		}
 		select {
 		case <-ctx.Done():
 			finishTaskRun(r, "canceled", errPluginQuiescing.Error())
@@ -154,6 +164,9 @@ func runAcceptAll(authIndex string, sa *storedAuth, r *growthTaskRun) {
 		}
 		if err := acceptGrowthTasks(sa, codes[start:end]); err != nil {
 			failed = append(failed, codes[start:end]...)
+			r.Mu.Lock()
+			r.Failed = append([]string(nil), failed...)
+			r.Mu.Unlock()
 		} else {
 			r.Mu.Lock()
 			r.Accepted += end - start
@@ -259,8 +272,11 @@ func handleGrowthTaskAcceptAll(req pluginapi.ManagementRequest) map[string]any {
 		r.Mu.RUnlock()
 		return map[string]any{"ok": false, "auth_index": idx, "run_id": r.ID, "status": status, "busy": true, "error": "该账号已有任务运行中"}
 	}
+	r.Mu.Lock()
+	r.Kind = "accept"
+	r.Mu.Unlock()
 	go runAcceptAll(idx, sa, r)
-	return map[string]any{"ok": true, "auth_index": idx, "run_id": r.ID, "status": r.Status}
+	return map[string]any{"ok": true, "auth_index": idx, "run_id": r.ID, "status": "running", "kind": "accept"}
 }
 
 func handleGrowthTaskStatus(req pluginapi.ManagementRequest) map[string]any {
@@ -278,14 +294,28 @@ func handleGrowthTaskStatus(req pluginapi.ManagementRequest) map[string]any {
 	if id == "" {
 		id = strings.TrimSpace(body.RunID)
 	}
-	result := taskRunSnapshot(id)
-	if result["error"] != nil {
-		return result
-	}
 	requestedAuth := strings.TrimSpace(body.AuthIndex)
 	if values := req.Query["auth_index"]; requestedAuth == "" && len(values) > 0 {
 		requestedAuth = strings.TrimSpace(values[0])
 	}
+	if id == "" && requestedAuth != "" {
+		pruneTaskRuns(time.Now())
+		if current, ok := taskRunsByAuth.Load(requestedAuth); ok {
+			if run, ok := current.(*growthTaskRun); ok {
+				run.Mu.RLock()
+				id = run.ID
+				run.Mu.RUnlock()
+			}
+		}
+		if id == "" {
+			return map[string]any{"auth_index": requestedAuth, "status": "idle"}
+		}
+	}
+	result := taskRunSnapshot(id)
+	if result["error"] != nil {
+		return result
+	}
+
 	if requestedAuth != "" {
 		actual, _ := result["auth_index"].(string)
 		if actual != requestedAuth {
@@ -426,4 +456,41 @@ func handleGrowthTravel(req pluginapi.ManagementRequest) map[string]any {
 	result["auth_index"] = idx
 	result["nickname"] = sa.Account.Nickname
 	return result
+}
+
+// Cancellation is cooperative, only for legitimate accept-only runs. It never
+// reports that an in-flight upstream action was rolled back.
+func taskRunCanceled(r *growthTaskRun) bool {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	return r.CancelRequested
+}
+func handleGrowthTaskCancel(req pluginapi.ManagementRequest) map[string]any {
+	var body struct {
+		RunID     string `json:"run_id"`
+		AuthIndex string `json:"auth_index"`
+	}
+	if err := jsonUnmarshalLimit(req.Body, &body); err != nil {
+		return map[string]any{"error": "invalid cancellation request"}
+	}
+	value, ok := taskRuns.Load(body.RunID)
+	if !ok {
+		return map[string]any{"error": "run_id not found"}
+	}
+	r, ok := value.(*growthTaskRun)
+	if !ok {
+		return map[string]any{"error": "invalid run"}
+	}
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
+	if body.AuthIndex == "" || body.AuthIndex != r.AuthIndex {
+		return map[string]any{"error": "auth_index mismatch"}
+	}
+	if r.Kind != "accept" {
+		return map[string]any{"error": "cancellation unsupported for this operation"}
+	}
+	if r.Status == "running" {
+		r.CancelRequested = true
+	}
+	return map[string]any{"run_id": r.ID, "auth_index": r.AuthIndex, "status": r.Status, "cancel_requested": r.CancelRequested}
 }
