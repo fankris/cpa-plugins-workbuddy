@@ -390,13 +390,14 @@ func servePanel(sub string) panelAsset {
 		sub = sub[:idx]
 	}
 	sub = strings.TrimSpace(sub)
-	if sub == "" || sub == "/" || sub == "/panel" || sub == "/panel.html" || strings.HasSuffix(sub, "/panel") || strings.HasSuffix(sub, "/panel.html") {
+	clean := "/" + strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(sub, "/"), "panel/"), "/")
+	if clean == "/" || clean == "/panel" || clean == "/panel.html" || sub == "" || sub == "/" || sub == "/panel" || sub == "/panel.html" {
 		return panelAsset{contentType: "text/html; charset=utf-8", body: localizedPanelHTML()}
 	}
-	if sub == "/panel-i18n.js" || strings.HasSuffix(sub, "/panel-i18n.js") {
+	if clean == "/panel-i18n.js" || sub == "/panel-i18n.js" || strings.HasSuffix(sub, "/panel-i18n.js") {
 		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelI18N}
 	}
-	if sub == "/panel.js" || strings.HasSuffix(sub, "/panel.js") {
+	if clean == "/panel.js" || sub == "/panel.js" || strings.HasSuffix(sub, "/panel.js") {
 		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelJS}
 	}
 	return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}

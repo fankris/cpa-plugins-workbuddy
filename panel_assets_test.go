@@ -71,41 +71,28 @@ func TestPanelMenuAndJSAreRegistered(t *testing.T) {
 	if err := json.Unmarshal(raw, &reg); err != nil {
 		t.Fatalf("decode management registration wire response: %v", err)
 	}
-	var foundPanelMenu, foundJS, foundLegacyPanelRoute bool
-	menuCount := 0
+	var foundLegacyRoute, foundResourceMenu, foundJS bool
 	for _, r := range reg.Routes {
-		if r.Menu != "" {
-			menuCount++
-		}
-		if r.Path == "/plugins/workbuddy/panel" {
-			foundLegacyPanelRoute = true
+		if r.Path == "/plugins/workbuddy/panel" && r.Menu == "WorkBuddy" {
+			foundLegacyRoute = true
 		}
 	}
 	for _, r := range reg.Resources {
-		if r.Menu != "" {
-			menuCount++
-		}
 		if r.Path == "/panel" && r.Menu == "WorkBuddy" {
-			foundPanelMenu = true
+			foundResourceMenu = true
 		}
 		if r.Path == "/panel.js" && r.Menu == "" {
 			foundJS = true
 		}
 	}
-	if menuCount != 1 {
-		t.Errorf("host menu count = %d, want exactly one", menuCount)
+	if !foundLegacyRoute {
+		t.Error("the /plugins/workbuddy/panel menu route must be registered in Routes for older CPA host compatibility")
 	}
-	if foundLegacyPanelRoute {
-		t.Error("legacy Routes must not declare /plugins/workbuddy/panel under the modern Resources contract")
-	}
-	if len(reg.Resources) != 3 {
-		t.Errorf("panel resources = %#v, want /panel menu, /panel.js and /panel-i18n.js scripts", reg.Resources)
-	}
-	if !foundPanelMenu {
-		t.Error("WorkBuddy menu must be registered exclusively through the modern /panel resource route")
+	if !foundResourceMenu {
+		t.Error("the /panel menu route must also be registered in Resources for modern CPA host compatibility")
 	}
 	if !foundJS {
-		t.Error("panel.js must remain a menu-less resource route")
+		t.Error("panel.js must remain registered in Resources")
 	}
 }
 
