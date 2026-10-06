@@ -1,19 +1,14 @@
-// Browser-only fixture; no upstream or real credentials.
+// Updated directory semantics: no static fallback is presented as upstream data.
 import {chromium} from '../frontend/node_modules/playwright/index.mjs';
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-const base=process.env.PREVIEW_BASE||'http://127.0.0.1:8080';
-const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
-const checks=[],errors=[];
-try{
- const ctx=await browser.newContext({locale:'zh-CN'});const page=await ctx.newPage();page.on('pageerror',e=>errors.push(e.message));
- let status='fallback',posts=0;
- await ctx.route('**/models?auth_index=*',r=>r.fulfill({json:{auth_index:'demo-001',status,warning:status==='fallback'?'fixture discovery denied':'',source:{source:status==='fallback'?'static (discovery failed)':'pin (unverified)'},models:[{id:'fixture-model',name:'Fixture model',disabled:false}]}}));
- await ctx.route('**/models/refresh',r=>{posts++;return r.fulfill({json:{auth_index:'demo-001',status:'fallback',warning:'fixture refresh denied',source:{source:'static (discovery failed)'},models:[{id:'fixture-model',name:'Fixture model',disabled:false}]}})});
- await ctx.request.post(base+'/__test/reset',{data:{}});await page.goto(base);await page.locator('tbody tr').first().waitFor();
- await page.locator('.section-nav').getByRole('button',{name:'模型诊断',exact:true}).click();await page.getByRole('button',{name:'账号模型发现',exact:true}).click();await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-001');
- await page.getByRole('alert').filter({hasText:'发现失败'}).waitFor();await page.getByText('Fixture model',{exact:true}).waitFor();checks.push('fallback catalog stays visible with explicit unverified warning');
- await page.getByRole('button',{name:'重新发现模型',exact:true}).click();await page.locator('dialog').getByRole('button',{name:'确认操作',exact:true}).click();await page.getByRole('alert').filter({hasText:'fixture refresh denied'}).waitFor();assert.equal(posts,1);checks.push('failed refresh keeps warning without mutation replay');
- status='skipped';await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-002');await page.getByText('当前使用固定或静态目录，未执行上游发现。',{exact:true}).waitFor();assert.equal(await page.getByRole('alert').count(),0);checks.push('switching to pinned/static account clears previous fallback alert');
+import assert from 'node:assert/strict';import fs from 'node:fs';
+const base='http://127.0.0.1:8080',checks=[],errors=[];const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+try{const ctx=await browser.newContext({locale:'zh-CN'}),page=await ctx.newPage();page.on('pageerror',e=>errors.push(e.message));let status='partial',posts=0;
+ await ctx.route('**/models/directory?*',r=>r.fulfill({json:{auth_index:'demo-001',status,models:status==='partial'?[{id:'fixture-model',name:'Fixture model',disabled:false}]:[],sources:[]}}));
+ await ctx.route('**/models/directory/refresh',r=>{posts++;return r.fulfill({json:{auth_index:'demo-001',status:'failed',models:[],sources:[]}})});
+ await ctx.request.post(base+'/__test/reset',{data:{}});await page.goto(base);await page.locator('tbody tr').first().waitFor();await page.locator('[data-section=models]').click();await page.getByRole('button',{name:'账号模型目录',exact:true}).click();await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-001');
+ await page.locator('.directory-sources summary').filter({hasText:'部分来源失败'}).waitFor();await page.getByText('Fixture model',{exact:true}).waitFor();checks.push('partial directory stays visible, explicitly labelled');
+ await page.getByRole('button',{name:'重新拉取',exact:true}).click();await page.locator('dialog .primary').click();await page.locator('.models-table .empty').getByText('目录获取失败，请重新拉取',{exact:true}).waitFor();assert.equal(posts,1);assert.equal(await page.locator('.models-table tbody tr').count(),0);await page.locator('.operation-strip .badge').filter({hasText:'失败'}).waitFor();checks.push('failed forced refresh has no old rows, no false success and no replay');
+ status='unsupported';await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-002');await page.locator('.models-table .empty').getByText('此服务的动态目录尚未验证',{exact:true}).waitFor();assert.equal(await page.locator('.models-table tbody tr').count(),0);checks.push('unsupported service is distinct from empty successful directory');
+ await ctx.route('**/models/directory?*',r=>r.fulfill({json:{}}));await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-001');await page.locator('.notice.error').waitFor();assert.equal(await page.locator('.models-table tbody tr').count(),0);assert.equal(await page.getByRole('button',{name:'重新拉取',exact:true}).isEnabled(),true);await page.getByRole('button',{name:'重新拉取',exact:true}).click();await page.locator('dialog .primary').click();await page.locator('.models-table .empty').getByText('目录获取失败，请重新拉取',{exact:true}).waitFor();assert.equal(posts,2);checks.push('malformed JSON object is not a successful directory; manual retry remains usable');
  assert.deepEqual(errors,[]);fs.writeFileSync('validation/iteration-4/browser-models.json',JSON.stringify({result:'PASS',checks,errors,realCredentialsUsed:false},null,2));console.log(checks);
 }finally{await browser.close()}

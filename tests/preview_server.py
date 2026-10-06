@@ -30,6 +30,18 @@ for account in accounts:
 for i,model in enumerate(models):
  model.update({'efforts':['low','high'] if i==0 else ['high'],'default_effort':'high','credits':'x0.00' if i==0 else 'x0.03','vendor':'Fixture family','supports_images':i==0,'only_reasoning':True,'metadata_source':'fixture'})
 initial=copy.deepcopy((accounts,models,config,tasks))
+def directory_fixture(idx):
+ rows=copy.deepcopy(models)
+ for i,m in enumerate(rows):
+  m.update({'family':('DeepSeek' if m['id'].startswith('deepseek') else 'Kimi' if m['id'].startswith('kimi') else '智谱 GLM' if m['id'].startswith('glm') else '腾讯混元' if m['id'].startswith('hunyuan') else '其他'), 'family_derived':True,'description':'本地模拟目录数据，用于验证字段展示，不是真实腾讯响应。','supports_reasoning':True,'supports_tool_call':i%2==0,'reasoning_summary':'auto','sources':['v3_config','enterprise_models'],'image_input_sources':{'v3_config':i==0,'enterprise_models':i==0},'routing_status':'directoryOnly'})
+ rows += [
+ {'id':'default-model','name':'Auto','context_length':176000,'max_completion_tokens':24000,'is_default':True,'sources':['enterprise_models'],'family':'其他','family_derived':True},
+ {'id':'fast-model','name':'Fast','context_length':200000,'max_completion_tokens':32000,'efforts':['medium'],'credits':'x0.34 credits','only_reasoning':True,'sources':['v3_config'],'family':'其他','family_derived':True},
+ {'id':'fixture-v3-priority','name':'V3 优先 · 模拟','context_length':1000000,'max_completion_tokens':128000,'efforts':['low','medium','high','xhigh','max'],'default_effort':'high','credits':'x0.07 credits','supports_reasoning':True,'supports_tool_call':True,'only_reasoning':True,'description':'两路目录合并时以 v3 字段为准的模拟条目；不是实际模型。','reasoning_summary':'auto','sources':['v3_config','enterprise_models'],'family':'其他','family_derived':True,'image_input_conflict':True,'image_input_sources':{'v3_config':False,'enterprise_models':True}},
+ {'id':'fixture-image','name':'图像条目 · 模拟','tags':['text-to-image'],'sources':['v3_config'],'family':'其他','family_derived':True},
+ {'id':'fixture-video','name':'视频条目 · 模拟','tags':['text-to-video'],'sources':['v3_config'],'family':'其他','family_derived':True},
+ {'id':'fixture-disabled','name':'上游禁用 · 模拟','disabled':True,'disabled_reason':'模拟目录不可用条目','sources':['enterprise_models'],'family':'其他','family_derived':True}]
+ return {'auth_index':idx,'name':idx,'status':'ok','service':'global' if idx=='demo-003' else 'cn','models':rows,'count':len(rows),'sources':[{'source':'enterprise_models','path':'/console/enterprises/personal/models','status':'ok','count':11},{'source':'v3_config','path':'/v3/config','status':'ok','count':12}],'cached':False,'fetched_at':now()}
 class Handler(BaseHTTPRequestHandler):
  def log_message(self,*args):pass
  def send(self,data,status=200,content='application/json; charset=utf-8'):
@@ -64,6 +76,7 @@ class Handler(BaseHTTPRequestHandler):
   if p==BASE+'/settings':return self.send({k:config.get(k,v) for k,v in {'checkin_auto':True,'lifecycle_auto':True,'token_keepalive':False,'travel_auto':False,'scheduler_mode':'host'}.items()})
   if p==BASE+'/accounts':return self.send({'accounts':accounts,'server_time':now(),'server_time_iso':now()})
   if p in ('/v8/management/config/plugins/configs/workbuddy',BASE+'/config'):return self.send(config)
+  if p==BASE+'/models/directory':return self.send(directory_fixture(q.get('auth_index',[''])[0]))
   if p==BASE+'/models/catalog':return self.send({'models':models})
   if p==BASE+'/models':
    idx=q.get('auth_index',[''])[0];return self.send({'auth_index':idx,'models':models,'source':{'source':'local demo fixture'}})
@@ -101,6 +114,7 @@ class Handler(BaseHTTPRequestHandler):
     if not run or run['run_id']!=body.get('run_id') or run['auth_index']!=body.get('auth_index'):return self.send({'error':'unknown run'},404)
     run['cancel_requested']=True;return self.send(run)
    if p==BASE+'/refresh':return self.send({'accounts':accounts})
+   if p==BASE+'/models/directory/refresh':return self.send(directory_fixture(body.get('auth_index')))
    if p==BASE+'/models/refresh':return self.send({'auth_index':body.get('auth_index'),'models':models,'source':{'source':'local demo fixture'}})
    if p in [BASE+'/tasks/accept',BASE+'/tasks/claim']:
     task=next((t for t in tasks if t['task_code']==body.get('task_code')),None)

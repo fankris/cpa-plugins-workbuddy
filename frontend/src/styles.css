@@ -407,3 +407,13 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 .models-table .model-name small.mono,.models-table .model-series{white-space:normal;overflow-wrap:anywhere;max-width:100%}
 @media(min-width:641px){.models-table table{table-layout:fixed}.models-table th:first-child{width:25%}.models-table th:nth-child(2),.models-table th:nth-child(3){width:11%}.models-table th:nth-child(4){width:23%}.models-table th:nth-child(5){width:11%}.models-table th:nth-child(6){width:9%}.models-table th:last-child{width:10%}.models-table .button{white-space:normal;gap:3px;padding-inline:3px}.models-table td{overflow-wrap:anywhere}.models-table td .badge{font-size:9px;padding-inline:4px}}
 .app-shell[data-tab="models"] main>.notice:not(.warn){padding:8px 10px;margin:0 0 8px;min-height:42px}
+
+/* Account directory: compact provenance, declarations available on demand. */
+.directory-sources{border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin:0 0 10px;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.directory-sources summary{cursor:pointer;font-weight:600}
+.directory-sources p{margin:7px 0;color:var(--secondary)}
+.directory-sources.warning{border-color:#bf8737}
+.model-detail .runtime dd{overflow-wrap:anywhere;min-width:0}
+.model-detail>p{overflow-wrap:anywhere}
+.models-metrics:has(>.metric:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:640px){.models-metrics:has(>.metric:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}.models-metrics:has(>.metric:nth-child(4)) .metric{padding:8px 5px}.models-metrics:has(>.metric:nth-child(4)) .metric>div{font-size:10px}.models-metrics:has(>.metric:nth-child(4)) small{display:none}.directory-sources{font-size:11px;padding:6px 9px;margin-bottom:7px}}

@@ -171,6 +171,8 @@ func managementRegistration() managementRegistrationResponse {
 			{Method: http.MethodPost, Path: base + "/tasks/travel", Description: "Run the CN buddy-travel cycle: claim when arrived, depart when idle."},
 			{Method: http.MethodPost, Path: base + "/tasks/cancel", Description: "Request cooperative cancellation of an accept-only run; cannot undo completed upstream actions."},
 			{Method: http.MethodGet, Path: base + "/tasks/status", Description: "Get growth task operation status."},
+			{Method: http.MethodGet, Path: base + "/models/directory", Description: "Read the selected account Tencent directory, separate from CPA routing."},
+			{Method: http.MethodPost, Path: base + "/models/directory/refresh", Description: "Re-fetch both account directory sources without using the cache."},
 			{Method: http.MethodGet, Path: base + "/models", Description: "Per-credential model list resolved through the same path host discovery uses (all accounts, or one with auth_index)."},
 			{Method: http.MethodPost, Path: base + "/models/refresh", Description: "Re-run model discovery for one credential (auth_index), bypassing the 5-minute cache."},
 			{Method: http.MethodGet, Path: base + "/models/catalog", Description: "List supported models with persistent global-disable state for the panel."},
@@ -286,6 +288,10 @@ func handleManagement(raw []byte) ([]byte, error) {
 	case req.Method == http.MethodGet && path == base+"/tasks/status":
 		result := handleGrowthTaskStatus(req)
 		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
+	case req.Method == http.MethodGet && path == base+"/models/directory":
+		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleAccountDirectory(req, modelsCtx, false)))
+	case req.Method == http.MethodPost && path == base+"/models/directory/refresh":
+		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleAccountDirectory(req, modelsCtx, true)))
 	case req.Method == http.MethodGet && path == base+"/models":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsQuery(req, modelsCtx)))
 	case req.Method == http.MethodPost && path == base+"/models/refresh":

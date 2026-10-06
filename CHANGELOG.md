@@ -1,3 +1,11 @@
+# v8.0.15-2.0.0-rebuild.17 — 2026-10-06
+
+- Add account-scoped, concurrent Tencent enterprise + v3 directory through CPA host HTTP.
+- Preserve metadata/source conflicts, bounded cache and honest failure/retry states.
+- Separate observational account catalog from existing CPA model configuration/routing; no automatic registration.
+- Four-locale directory details, raw token counts, suffixed multiplier sorting and late-response isolation.
+- Go567/1skip, Node104, browser174+HTTP, ABI11; synthetic backend only.
+
 # v8.0.15-2.0.0-rebuild.16 — 2026-10-06
 
 参考Manager模型页增加系列/能力声明组合筛选和倍率/上下文排序；未知倍率置后，显示结果/来源总数，手机折叠高级条件，多语言表头防横溢出。档位/倍率/能力/系列标签分组，区分未加载/未选账号/筛选空结果。保留CPAMP配置修复和积分倒计时。97Node、548Go+1SKIP、153浏览器+HTTP、10ABI。

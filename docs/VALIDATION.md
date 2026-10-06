@@ -1,3 +1,13 @@
+# 当前验证：rebuild.17
+
+见 [结构化报告](VALIDATION-17.json) 与 [实现及边界](ITERATION-17.md)。
+
+Go race 567 PASS / 1 optional SKIP；vet、TypeScript、构建通过；Node104；浏览器174组+普通HTTP；原版CPAMC前端74组（模拟后端）；发布二进制ABI11组。HTML37张截图，20张原版CPAMC前端。
+
+没有真实腾讯账号、用户CPAMP实例或生产验收。目录仅观察，不自动注册为CPA路由；国际CodeBuddy目录未验证。
+
+## 历史记录
+
 # 当前验证与复现
 
 当前保留 rebuild.16 最新源码、唯一最新 ZIP 与离线 HTML。摘要见 [VALIDATION-16.json](VALIDATION-16.json)，变更与限制见 [ITERATION-16.md](ITERATION-16.md)。旧版本安装包及临时二进制、依赖和原始测试输出按清理规则删除；最新 ZIP 含插件与完整源码。

@@ -1,6 +1,8 @@
 export function outcome(value:any):string {
  if(!value||typeof value!=='object')return 'unconfirmed';
  if(value.cancel_requested&&value.status==='running')return 'cancelRequested';
+ if(value.status==='unsupported')return 'skipped';
+ if(value.status==='partial')return 'partial';
  if(value.status==='fallback')return 'partial';
  if(value.status==='running')return 'pending';
  if(value.status==='canceled')return 'canceled';

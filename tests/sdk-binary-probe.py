@@ -125,6 +125,11 @@ mode='models-failed';scope='probe-model-fallback';req['host_callback_id']=scope
 rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
 body=json.loads(base64.b64decode(result['result']['Body']));assert body['status']=='fallback' and body['warning'] and body['models'],body
 checks.append('compiled management response reports discovery failure with usable fallback, never false success')
+mode='models';scope='probe-directory'
+req={'Method':'POST','Path':'/v0/management/plugins/workbuddy/models/directory/refresh','Body':encode({'auth_index':'fixture-index'}),'host_callback_id':scope}
+rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
+body=json.loads(base64.b64decode(result['result']['Body']));assert body['status']=='ok' and len(body['sources'])==2 and body['models'][0]['routing_status']=='directoryOnly',body
+checks.append('compiled account directory fetches both sources with callback scope and never claims routing registration')
 mode='billing';scope=''
 # Background billing operations are owned by the plugin lifecycle, without an executor callback.
 req={'Method':'GET','Path':'/v0/management/plugins/workbuddy/accounts'}

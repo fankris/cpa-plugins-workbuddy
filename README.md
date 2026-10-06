@@ -1,8 +1,8 @@
 # WorkBuddy extension for CPA
 
-**Current source: `v8.0.15-2.0.0-rebuild.16` · 2026-10-06.** CPA is the host and authority; WorkBuddy Manager is a selective workflow reference, not the architecture to transplant.
+**Current source: `v8.0.15-2.0.0-rebuild.17` · 2026-10-06.** CPA is the host and authority; WorkBuddy Manager is a selective workflow reference, not the architecture to transplant.
 
-Uses CPA 8.0.15 stable SDK (ABI 1 / schema 6), with CPAMC v1.25.3 as the UI contract reference. Preserves `/panel` and provider/auth identity. Delivery policy: keep one latest ZIP containing source, Linux amd64 plugin and offline HTML with actual UI screenshots. Temporary artifacts are cleaned after packaging. See [iteration 16](docs/ITERATION-16.md), [validation](docs/VALIDATION.md), and [ownership matrix](docs/FEATURE-MATRIX.md).
+Uses CPA 8.0.15 stable SDK (ABI 1 / schema 6), with CPAMC v1.25.3 as the UI contract reference. Preserves `/panel` and provider/auth identity. Delivery policy: keep one latest ZIP containing source, Linux amd64 plugin and offline HTML with actual UI screenshots. Temporary artifacts are cleaned after packaging. See [iteration 16](docs/ITERATION-17.md), [validation](docs/VALIDATION.md), and [ownership matrix](docs/FEATURE-MATRIX.md).
 
 ## Mobile-first work surface
 
@@ -46,7 +46,7 @@ For fixture preview: `python3 tests/preview_server.py --port 8080`; then `node t
 
 ## Acceptance boundary
 
-Go race **539 PASS / 1 SKIP**, Node **61 PASS**, fixture browser **102 scenarios plus insecure HTTP**, compiled binary/mock-host ABI **8 groups PASS**. Official-host integration was not rerun; no real credentials were used. See [current validation](docs/ITERATION-16.md).
+Go race **539 PASS / 1 SKIP**, Node **61 PASS**, fixture browser **102 scenarios plus insecure HTTP**, compiled binary/mock-host ABI **8 groups PASS**. Official-host integration was not rerun; no real credentials were used. See [current validation](docs/ITERATION-17.md).
 
 
 ## 最新交付规则 / Latest delivery
@@ -55,11 +55,11 @@ Go race **539 PASS / 1 SKIP**, Node **61 PASS**, fixture browser **102 scenarios
 
 ## Billing execution repair
 
-The plugin now hydrates cold account reads, parses both billing shapes, aggregates pages and preserves stale/error semantics. Legacy menu assets are served through CPA management authentication. See docs/ITERATION-16.md. Real accounts remain untested.
+The plugin now hydrates cold account reads, parses both billing shapes, aggregates pages and preserves stale/error semantics. Legacy menu assets are served through CPA management authentication. See docs/ITERATION-17.md. Real accounts remain untested.
 
 ## Host chrome adaptation
 
-External title bars no longer cause duplicate padding. Same-origin floating controls use measured corner exclusion; narrow viewports switch to vertical clearance. Cross-origin frames retain conservative fallback. See docs/ITERATION-16.md.
+External title bars no longer cause duplicate padding. Same-origin floating controls use measured corner exclusion; narrow viewports switch to vertical clearance. Cross-origin frames retain conservative fallback. See docs/ITERATION-17.md.
 
 ## Toolbar simplification
 
@@ -73,4 +73,4 @@ Recognized floating hosts use a desktop navigation band; portrait mobile uses a 
 
 Validated against the unmodified, SHA256-pinned CPAMC v1.25.3 release frontend with a fixture backend. Deduplicated refresh only in the recognized official layout, repaired light-theme transitions, and protected modal close controls beneath expanded host menus. No real-backend/account acceptance claimed.
 
-Rebuild 14 adds a credit-expiry dashboard and plugin-only automation settings. Enable `scheduler_mode: credits_expiry` explicitly to prefer eligible accounts with expiring credits; unknown/stale snapshots fall back to CPA. Rich model metadata is upstream-declared, not verified capability or pricing. See ITERATION-16.md.
+Rebuild 14 adds a credit-expiry dashboard and plugin-only automation settings. Enable `scheduler_mode: credits_expiry` explicitly to prefer eligible accounts with expiring credits; unknown/stale snapshots fall back to CPA. Rich model metadata is upstream-declared, not verified capability or pricing. See ITERATION-17.md.

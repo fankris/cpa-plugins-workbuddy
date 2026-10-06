@@ -9,6 +9,7 @@ try{
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',r=>{if(!r.request().url().startsWith('file:')&&!r.request().url().startsWith('data:')){external.push(r.request().url());return r.abort()}return r.continue()});
  await page.goto(new URL('WorkBuddy-交付说明.html',out).href);
+ await page.locator('details').evaluateAll(nodes=>nodes.forEach(n=>n.open=true));
  const imageCount=Object.keys(JSON.parse(fs.readFileSync(new URL('DELIVERY-META.json',out),'utf8')).screenshots.screenshots).length;assert.equal(await page.locator('figure img').count(),imageCount);
  // Validate each screenshot in view, rather than requesting simultaneous
  // offscreen decodes (Chromium may reject those under its decode budget).
