@@ -26,11 +26,25 @@ class Handler(BaseHTTPRequestHandler):
  def log_message(self,*args):pass
  def send(self,data,status=200,content='application/json; charset=utf-8'):
   raw=data if isinstance(data,bytes) else json.dumps(data,ensure_ascii=False).encode()
-  self.send_response(status);self.send_header('Content-Type',content);self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw)
+  self.send_response(status);self.send_header('Content-Type',content);self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.send_header('X-CPA-Version','8.0.15');self.send_header('X-CPA-Support-Plugin','true');self.end_headers();self.wfile.write(raw)
  def do_GET(self):
   u=urlparse(self.path);p=u.path;q=parse_qs(u.query)
   if p=='/':self.send_response(302);self.send_header('Location',RESOURCE+'/panel');self.end_headers();return
+  if p=='/official/management.html':
+   official=Path.home()/'.cache/cpamc-reference/management.html'
+   if not official.exists():return self.send({'error':'Download the checksum-verified CPAMC reference first'},404)
+   return self.send(official.read_bytes(),200,'text/html; charset=utf-8')
+  if p=='/v8/management/config':return self.send({'debug':False,'plugins':{'configs':{'workbuddy':config}},'routing':{'strategy':'round-robin'}})
+  if p=='/v8/management/plugins':return self.send({'plugins':[{'id':'workbuddy','configured':True,'registered':True,'enabled':True,'effective_enabled':True,'metadata':{'name':'WorkBuddy','version':(ROOT/'VERSION').read_text().strip()},'menus':[{'path':RESOURCE+'/panel','menu':'WorkBuddy'}]}]})
+  if p in ('/v8/management/credentials','/v8/management/credentials/files','/v8/management/auth-files'):return self.send({'files':[]})
   if p=='/__test/state':return self.send({'requests':requests,'config':config})
+  if p in ('/host-cpamp','/host-cpamc','/host-cross'):
+   title=p=='/host-cpamp'
+   cross=p=='/host-cross'
+   src='http://localhost:8080/v0/resource/plugins/workbuddy/panel' if cross else '/v0/resource/plugins/workbuddy/panel'
+   chrome='<header id="host-title">CPAMP · WorkBuddy <small>宿主标题栏布局模拟</small></header>' if title else '<div class="floating-actions" role="toolbar"><button>刷新</button><button>语言</button><button>主题</button><button>退出</button></div><div class="mobile-sidebar-actions"><button>☰</button></div>'
+   css='body{margin:0;font:14px system-ui;background:#f4f5f7}iframe{display:block;width:100%;height:100dvh;border:0}#host-title{height:64px;box-sizing:border-box;display:flex;align-items:center;gap:20px;padding:0 22px;background:#fff;border-bottom:1px solid #ddd}#host-title+iframe{height:calc(100dvh - 64px)}small{color:#666}.floating-actions,.mobile-sidebar-actions{position:fixed;top:10px;z-index:10;padding:5px;display:flex;gap:4px;border:1px solid #d8dbe0;border-radius:14px;background:#fff;box-shadow:0 2px 8px #0002}.floating-actions{right:12px}.mobile-sidebar-actions{left:10px;display:none}button{min-height:36px;min-width:40px;background:#f6f7f8;border:0;border-radius:8px;padding:0 10px}@media(max-width:640px){.mobile-sidebar-actions{display:flex}.floating-actions{right:10px}button{padding:0 6px}}'
+   return self.send(('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body>'+chrome+'<iframe title="WorkBuddy" src="'+src+'"></iframe></body></html>').encode(),200,'text/html; charset=utf-8')
   if p=='/host':return self.send(b'<!doctype html><html><body style="margin:0"><iframe title="WorkBuddy" src="/v0/resource/plugins/workbuddy/panel" style="width:100%;height:100vh;border:0"></iframe></body></html>',200,'text/html; charset=utf-8')
   files={RESOURCE+'/panel':'panel.html',RESOURCE+'/panel.js':'panel.js',RESOURCE+'/panel.css':'panel.css'}
   if p in files:

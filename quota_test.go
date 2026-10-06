@@ -118,6 +118,9 @@ func TestNativeQuotaUsesInjectedHostHTTPClient(t *testing.T) {
 	if resp.Subscription == nil || len(resp.Groups) == 0 {
 		t.Fatalf("quota response=%#v", resp)
 	}
+	if resp.Summary[0].Value != 75 {
+		t.Fatalf("flat billing data must yield 75 credits, got %#v", resp.Summary)
+	}
 	if client.calls != 2 {
 		t.Fatalf("HTTP calls=%d want resource + payment type", client.calls)
 	}

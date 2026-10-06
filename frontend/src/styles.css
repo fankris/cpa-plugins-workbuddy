@@ -17,12 +17,11 @@ main{max-width:1376px;margin:0 auto;padding:20px 48px 145px}.demo-banner{border-
 @media(max-width:640px){.topbar{padding:0 18px;min-height:65px}.brand small,.brand-divider,.command{display:none!important}.brand{font-size:13px}.top-actions{gap:3px}.locale{font-size:10px}.locale select{max-width:66px}.top-actions .icon{width:29px}.brand-symbol{width:27px;height:27px;border-radius:8px}main{padding:14px 18px 125px}.demo-banner{margin-bottom:24px;padding:9px 10px;font-size:10px}.page-heading{align-items:flex-start;flex-direction:column;gap:18px;margin-bottom:17px}h1{font-size:24px}.page-heading p{font-size:11px}.heading-actions{width:100%;max-width:none}.heading-actions .button{flex:1}.eyebrow{font-size:8px}.section-nav{overflow-x:auto;margin-bottom:19px}.section-nav>div{gap:19px}.section-nav button{font-size:11px;white-space:nowrap;gap:5px}.section-nav .connection{display:none}.section-nav button svg{width:13px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:21px}.metric{padding:15px;border-radius:17px;min-height:115px}.metric>strong{font-size:25px}.metric>div{font-size:10px}.metric>small{font-size:9px}.metric .text-value{font-size:13px}.toolbar{gap:12px}.filters{width:100%;flex-wrap:wrap}.filters .search{flex:1;min-width:100%}.filters .search input{width:100%}.filters select{flex:1;max-width:none}.table-card{border-radius:17px}.table-card td{height:68px}.table-card th{font-size:9px}.account-name{min-width:150px}.task-grid{grid-template-columns:1fr}.task-card{padding:20px}.dock{bottom:14px;gap:4px;padding:9px;border-radius:19px}.dock>button,.dock-brand{width:36px;height:37px;border-radius:11px}.dock-divider{margin:0 2px;height:18px}.dock>button svg{width:18px}.page-footer{font-size:8px;flex-wrap:wrap}.connect-card{align-items:flex-start;flex-wrap:wrap;padding:18px;gap:12px}.connect-card>svg{width:24px}.connect-card>div{flex:1}.connect-card .button{width:100%;margin:0}.notice{font-size:10px;flex-wrap:wrap}.panel-heading{align-items:flex-start;flex-direction:column;gap:7px}.table-footer{font-size:9px;padding:10px 13px}.modal-body{padding:18px}.modal-head{padding:14px 18px}.detail-metrics strong{font-size:20px}.diagnostic{padding:18px}dl{column-gap:12px;font-size:10px}.section-note{font-size:9px;flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
-/* CPAMC places a floating toolbar above plugin iframes. Reserve its hit area. */
 .host-theme .top-actions .locale,.host-theme .theme-control{display:none}
 
 /* Iteration 2: embedded native-page composition, not an application within an application. */
 .app-shell main{max-width:none;margin:0;padding:24px 28px 32px}
-.embedded main{padding-top:10px}
+
 .section-nav{margin-bottom:24px;gap:18px}
 .page-heading{margin-bottom:24px;align-items:center}
 .page-heading h1{font-size:25px;font-weight:650;letter-spacing:-.5px}
@@ -38,19 +37,18 @@ main{max-width:1376px;margin:0 auto;padding:20px 48px 145px}.demo-banner{border-
 .operation-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--muted);border:1px solid var(--line);border-radius:10px;padding:9px 13px;margin-bottom:18px;font-size:12px}.operation-strip>span{overflow-wrap:anywhere}.operation-strip .button{margin-left:auto}
 .standalone-tools{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:24px;font-size:11px;color:var(--secondary)}
 .demo-banner{margin-bottom:18px}.toast{top:auto;bottom:20px}
-@media(max-width:640px){.app-shell main{padding:16px 14px 24px}.embedded main{padding-top:10px}.page-heading{align-items:flex-start;gap:14px}.page-heading h1{font-size:22px}.heading-actions{gap:6px}.heading-actions .button{flex:0 1 auto;font-size:11px}.section-nav{margin-bottom:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:13px;min-height:90px}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}.table-card{border-radius:10px}.row-actions{gap:0}.operation-strip{gap:7px}}
+@media(max-width:640px){.app-shell main{padding:16px 14px 24px}.page-heading{align-items:flex-start;gap:14px}.page-heading h1{font-size:22px}.heading-actions{gap:6px}.heading-actions .button{flex:0 1 auto;font-size:11px}.section-nav{margin-bottom:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:13px;min-height:90px}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}.table-card{border-radius:10px}.row-actions{gap:0}.operation-strip{gap:7px}}
 .task-filters{margin:0 0 16px;display:flex;gap:6px;flex-wrap:wrap}.run-summary{margin-top:20px;max-width:680px}.run-summary details{margin-top:18px}.run-summary summary{cursor:pointer;color:var(--secondary);margin-bottom:10px}.run-status>.badge{font-size:13px}
 
 /* Iteration 6: a bounded work surface. Navigation and actions stay in view;
    only the active list scrolls. Mobile is a card workflow, not a wide table. */
 html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 .app-shell main{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:auto;padding:14px 22px 12px}
-.app-shell.embedded main{padding-top:10px}
 .app-shell main>*{flex-shrink:0}
 .section-nav{margin-bottom:12px}.page-heading{position:relative;margin-bottom:12px;gap:12px}
 .page-heading h1{font-size:22px}.page-heading p{font-size:11px}
 .page-controls{display:flex;align-items:center;gap:8px;margin-left:auto}
-.more-actions,.mobile-quota,.filter-toggle,.tab-short{display:none}
+.more-actions,.mobile-quota,.mobile-import,.filter-toggle,.tab-short{display:none}
 .metrics{margin-bottom:12px}.metric{padding:8px 15px;min-height:65px}
 .metric>strong{font-size:22px;line-height:1.2;margin:3px 0}.metric>small{font-size:9px}
 .toolbar{margin-bottom:10px;gap:8px}.filter-options{display:flex;gap:8px}
@@ -77,8 +75,7 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 .modal-head,.modal-footer{flex-shrink:0}.modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain}
 @media(max-width:640px),(max-height:500px) and (pointer:coarse){
  .app-shell main{padding:8px 10px max(6px,env(safe-area-inset-bottom));overflow:auto}
- .app-shell.embedded main{padding-top:10px}
- .demo-banner{font-size:9px;min-height:21px;padding:2px 6px;margin-bottom:3px;white-space:nowrap;overflow:hidden}
+  .demo-banner{font-size:9px;min-height:21px;padding:2px 6px;margin-bottom:3px;white-space:nowrap;overflow:hidden}
  .section-nav{overflow:visible;gap:5px;margin-bottom:6px;min-height:43px}
  .section-nav>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;flex:1;min-width:0}
  .section-nav button{justify-content:center;min-width:0;min-height:44px;padding:7px 0;font-size:12px;gap:4px}
@@ -89,7 +86,7 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
  .page-controls{width:100%;gap:6px;justify-content:flex-end}
  .page-controls .button{min-height:42px;font-size:12px;padding:7px 12px}
  .page-controls>.button:first-child{margin-right:auto;width:44px;padding:0}
- .refresh-label{display:none}.more-actions,.mobile-quota{display:inline-flex}
+ .refresh-label{display:none}.more-actions,.mobile-quota,.mobile-import{display:inline-flex}
  .heading-actions{display:none}.heading-actions.expanded{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));position:absolute;top:calc(100% + 4px);right:0;width:min(350px,100%);padding:10px;gap:7px;border:1px solid var(--line);border-radius:12px;background:var(--bg);box-shadow:0 10px 30px #0003;z-index:10}
  .heading-actions .button{min-height:44px;white-space:normal;font-size:12px;width:100%}
  .heading-actions .desktop-quota{display:none}
@@ -198,8 +195,7 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 .modal-head>h2{flex:1;min-width:0}
 @media(min-width:641px) and (min-height:501px),(min-width:641px) and (pointer:fine){
  .app-shell main{padding:12px 20px 10px;max-width:1800px;margin:0 auto}
- .app-shell.embedded main{padding-top:10px}
- .demo-banner{padding:2px 9px;margin-bottom:4px;min-height:22px;font-size:10px}
+  .demo-banner{padding:2px 9px;margin-bottom:4px;min-height:22px;font-size:10px}
  .section-nav{margin-bottom:8px;min-height:40px}
  .section-nav button{padding:8px 2px 10px;font-size:12px}
  .page-heading{gap:8px;margin-bottom:10px;min-height:36px;align-items:center}
@@ -209,7 +205,6 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
  .page-controls{margin-left:12px;flex-shrink:0;gap:6px}
  .heading-actions{gap:6px;flex-wrap:nowrap}
  .page-controls .button,.heading-actions .button{min-height:34px;padding:6px 11px;border-radius:7px;font-size:12px}
- .heading-actions .settings-action{border-right:1px solid var(--line);border-radius:0;margin-right:2px;padding-right:13px}
  .heading-actions .primary{margin-left:2px}
  .metrics{margin-bottom:10px;border-radius:8px;min-height:47px;gap:0}
  .metric{display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:8px 16px;min-height:47px;position:relative}
@@ -290,7 +285,7 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 }
 @media(min-width:641px) and (max-width:1100px) and (min-height:501px){
  .app-shell main{padding-left:14px;padding-right:14px}
- .page-heading h1{font-size:17px}.heading-actions .settings-action>span{display:none}
+ .page-heading h1{font-size:17px}
  .page-controls .button,.heading-actions .button{font-size:11px;padding:6px 8px}
  .metrics .metric{padding:7px 10px;gap:8px}.metric>div{font-size:11px}
  .accounts-table th:last-child{width:240px}.accounts-table th:nth-child(6){width:112px}.accounts-table th:nth-child(5){width:73px}
@@ -300,4 +295,65 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 }
 @media(max-width:640px),(max-height:500px) and (pointer:coarse){
  .page-size,.detail-navigation{display:none}
+}
+
+/* Host chrome is outside our ownership. Only reserve measured intersections. */
+.app-shell.embedded main{padding-top:calc(12px + var(--host-top-gap,0px))}
+.embedded .section-nav{margin-left:var(--host-nav-left,0px);margin-right:var(--host-nav-right,0px);min-height:max(40px,var(--host-nav-height,0px))}
+:root[data-host-layout]:not([data-host-layout="standalone"]) .modal{position:fixed;inset-block:var(--host-overlay-bottom,0px) 0;margin-block:auto;max-height:min(90dvh,calc(100dvh - var(--host-overlay-bottom,0px) - 16px))}
+@media(max-width:640px),(max-height:500px) and (pointer:coarse){
+ .app-shell.embedded main{padding-top:calc(8px + var(--host-top-gap,0px))}
+ .embedded .section-nav{min-height:max(44px,var(--host-nav-height,0px))}
+}
+
+/* Iteration 11: an intentional workspace header, not padding around an overlay.
+   Mobile navigation is a normal bottom row, never another floating dock. */
+.host-workspace-heading{display:none}
+:root[data-host-layout="overlay-band"] .section-nav{order:-2;min-height:var(--host-nav-height,52px);align-items:center;margin-bottom:8px}
+:root[data-host-layout="overlay-band"] .section-nav .tab-full{display:none}
+:root[data-host-layout="overlay-band"] .section-nav .tab-short{display:inline}
+:root[data-host-layout="overlay-band"] .section-nav .connection{font-size:0;gap:0}
+:root[data-host-layout^="overlay-"] .demo-banner{order:90;margin:4px 0 0;min-height:18px;font-size:9px;padding:2px 6px}
+:root[data-host-layout="overlay-wide"] .host-workspace-heading{display:block;order:-3;min-height:var(--host-nav-height,52px)}
+:root[data-host-layout="overlay-wide"] .host-workspace-heading>span{visibility:hidden}
+:root[data-host-layout="overlay-wide"] .section-nav{margin-inline:0;min-height:40px}
+:root[data-host-layout="overlay-mobile"] .host-workspace-heading{display:flex;align-items:center;justify-content:center;order:-3;min-height:var(--host-nav-height,52px);margin-left:var(--host-nav-left,0px);margin-right:var(--host-nav-right,0px);margin-bottom:8px;min-width:0;font-size:14px;font-weight:650}
+:root[data-host-layout="overlay-mobile"] .host-workspace-heading>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:root[data-host-layout="overlay-mobile"] .section-nav{order:100;flex-shrink:0;margin:8px 0 0;min-height:52px;border-top:1px solid var(--line);border-bottom:0;padding-top:4px;background:var(--bg)}
+:root[data-host-layout="overlay-mobile"] .section-nav>div{gap:4px}
+:root[data-host-layout="overlay-mobile"] .section-nav button{flex-direction:column;gap:3px;min-height:44px;font-size:10px;border:0;border-radius:8px;padding:4px 2px}
+:root[data-host-layout="overlay-mobile"] .section-nav button.active{background:var(--muted2);color:var(--fg)}
+:root[data-host-layout="overlay-mobile"] .section-nav button svg{width:17px;height:17px}
+:root[data-host-layout="overlay-mobile"] .section-nav .connection{display:none}
+
+/* Official CPAMC already refreshes/remounts the plugin through its header.
+   Leave only WorkBuddy business actions beneath that host-owned toolbar. */
+:root[data-host-ui="cpamc"] .data-refresh,:root[data-host-ui="cpamc"] .section-nav .connection{display:none}
+:root[data-host-ui="cpamc"] .page-controls:has(>.data-refresh:only-child){display:none}
+@media(max-width:640px),(max-height:500px) and (pointer:coarse){
+ :root[data-host-ui="cpamc"] .page-controls .mobile-quota,:root[data-host-ui="cpamc"] .page-controls .mobile-import{flex:1;margin-left:0}
+}
+
+/* Focus the secondary workspaces on the active data and actionable state. */
+.models-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+.task-card-top{gap:10px;align-items:flex-start}
+.task-card-top>h3{flex:1;min-width:0;margin:0;overflow-wrap:anywhere}
+.task-card-top>.badge{flex-shrink:0}
+.results-toolbar{display:flex;flex-wrap:nowrap}
+.results-toolbar .search{flex:1;min-width:0}
+.results-toolbar input{width:100%;min-width:0}
+.results-toolbar select{max-width:36%;min-width:0}
+.results-toolbar>.button{flex-shrink:0}
+.results-table .table-footer{gap:8px;flex-wrap:wrap;font-size:10px}
+@media(min-width:641px) and (min-height:501px),(min-width:641px) and (pointer:fine){.task-card{min-height:190px}}
+@media(max-width:640px),(max-height:500px) and (pointer:coarse){
+ .task-card-top{grid-column:1/-1;grid-row:1}
+ .task-card-top>h3{font-size:13px}
+ .results-toolbar .search{min-width:0}
+ .results-toolbar select{min-height:42px;font-size:11px}
+ .results-table .table-footer{padding:6px 10px;font-size:9px}
+}
+@media(max-width:640px),(max-height:500px) and (pointer:coarse){
+ /* No orphan action row when the official host owns the only refresh button. */
+ :root[data-host-ui="cpamc"] .page-heading:has(>.page-controls>.data-refresh:only-child){display:none}
 }

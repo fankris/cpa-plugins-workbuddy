@@ -35,23 +35,30 @@ def callback(ctx,method,raw,size,out):
   method=method.decode();request=json.loads(C.string_at(raw,size) or b'{}')
   with lock:calls.append(method)
   if method=='host.log':return respond(out,{})
-  if method=='host.auth.list':return respond(out,{'files':[{'name':'team-alpha.json','type':'workbuddy','auth_index':'fixture-index','id':'team-alpha.json'}] if mode.startswith('models') else []})
+  if method=='host.auth.list':return respond(out,{'files':[{'name':'team-alpha.json','type':'workbuddy','auth_index':'fixture-index','id':'team-alpha.json'}] if mode.startswith('models') or mode=='billing' else []})
   if method=='host.auth.get':return respond(out,{'auth_index':'fixture-index','name':'team-alpha.json','path':'team-alpha.json','json':{'type':'workbuddy',**storage}})
   if method=='host.http.operation_open':
-   assert request.get('host_callback_id')==scope
-   with lock:seq+=1;op='probe-op-'+str(seq);ops[op]=request.get('host_callback_id')
+   assert request.get('host_callback_id','')==scope
+   with lock:seq+=1;op='probe-op-'+str(seq);ops[op]=request.get('host_callback_id','')
    return respond(out,{'operation_id':op})
   if method=='host.http.cancel':
    assert request['operation_id'] in ops
-   assert request.get('host_callback_id')==ops[request['operation_id']]
+   assert request.get('host_callback_id','')==ops[request['operation_id']]
    canceled.set();return respond(out,{})
   if method in ('host.http.do_stream','host.http.do'):
    assert request.get('operation_id') in ops
-   assert request.get('host_callback_id')==scope
+   assert request.get('host_callback_id','')==scope
    assert request.get('request',{}).get('url','').startswith('https://')
    if mode=='blocked':
     started.set();assert canceled.wait(5),'cancellation did not reach pending headers'
     return respond(out,error='operation canceled')
+   if method=='host.http.do' and mode=='billing':
+    url=request['request']['url']
+    if url.endswith('/get-user-resource'):data={'Response':{'Data':{'TotalCount':1,'Accounts':[{'PackageName':'Pro','CapacityRemain':75,'CapacityUsed':25,'CapacitySize':100}]}}}
+    elif url.endswith('/get-payment-type'):data={'paymentType':'Pro'}
+    elif url.endswith('/checkin-activity-status'):data={'checked_in':True,'today_checked_in':True}
+    else:raise AssertionError('Unexpected billing URL '+url)
+    return respond(out,{'StatusCode':200,'Headers':{},'Body':encode({'code':0,'data':data})})
    if method=='host.http.do' and mode.startswith('models'):
     if mode=='models-failed':return respond(out,{'StatusCode':403,'Headers':{},'Body':encode(b'discovery denied')})
     return respond(out,{'StatusCode':200,'Headers':{},'Body':encode({'code':0,'data':{'models':[{'id':'glm-5.2','name':'GLM','contextWindow':128000,'disabled':False}]}})})
@@ -79,6 +86,14 @@ def invoke(method,request):
 config='checkin_auto: false\nlifecycle_auto: false\ntoken_keepalive: false\ntravel_auto: false\nscheduler_mode: host\n'
 rc,reg=invoke('plugin.register',{'config_yaml':encode(config.encode())});assert rc==0 and reg['ok'] and reg['result']['schema_version']==6
 checks.append('actual release C ABI initialization and schema 6 registration')
+rc,menus=invoke('management.register',{});assert rc==0 and menus['ok'],menus
+assert any(r.get('path')=='/plugins/workbuddy/panel' and r.get('method')=='GET' and r.get('menu')=='WorkBuddy' for r in menus['result']['routes'])
+assert any(r.get('path')=='/panel' and r.get('menu')=='WorkBuddy' for r in menus['result']['resources'])
+for base in ('/v0/management/plugins/workbuddy','/v0/resource/plugins/workbuddy'):
+ for asset in ('/panel','/panel.js','/panel.css','/panel-i18n.js'):
+  rc,result=invoke('management.handle',{'Method':'GET','Path':base+asset})
+  assert rc==0 and result['ok'] and result['result']['StatusCode']==200 and result['result']['Body'],result
+checks.append('compiled dual-track menu metadata and all legacy/modern embedded assets are registered and served')
 storage={'auth':{'accessToken':'fixture-only','expiresAt':2000000000},'account':{'uid':'abi-fixture'}}
 request={'StorageJSON':encode(storage),'Model':'fixture-model','Payload':encode({'messages':[{'role':'user','content':'probe'}]}),'host_callback_id':scope}
 for method in ('executor.execute','executor.execute_stream'):
@@ -107,6 +122,17 @@ mode='models-failed';scope='probe-model-fallback';req['host_callback_id']=scope
 rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
 body=json.loads(base64.b64decode(result['result']['Body']));assert body['status']=='fallback' and body['warning'] and body['models'],body
 checks.append('compiled management response reports discovery failure with usable fallback, never false success')
+mode='billing';scope=''
+# Background billing operations are owned by the plugin lifecycle, without an executor callback.
+req={'Method':'GET','Path':'/v0/management/plugins/workbuddy/accounts'}
+rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
+body=json.loads(base64.b64decode(result['result']['Body']))
+account=body['accounts'][0];assert account.get('credits',{}).get('total_remain')==75 and account['plan']=='Pro',account
+assert body['summary']['total_remain']==75,body['summary']
+before=calls.count('host.http.do');rc,result=invoke('management.handle',req)
+assert calls.count('host.http.do')==before,'Warm dashboard repeated upstream billing'
+assert 'host.auth.save' not in calls,'Read-only dashboard wrote credentials'
+checks.append('compiled cold dashboard fetches and aggregates actual mock billing through CPA HTTP; warm read uses cache without credential writes')
 mode='blocked';scope='probe-blocked';request['host_callback_id']=scope;canceled.clear();thread_errors=[]
 def blocked():
  try:

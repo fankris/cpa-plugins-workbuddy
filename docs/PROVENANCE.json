@@ -1,5 +1,5 @@
 {
-  "build": "v8.0.15-2.0.0-rebuild.7",
+  "build": "v8.0.15-2.0.0-rebuild.12",
   "independent_unreleased_build": true,
   "date": "2026-10-05",
   "references": {
@@ -36,10 +36,10 @@
   },
   "binary": {
     "retained": false,
-    "temporary_validation_sha256": "33bacbe59d3b176a6944286b765535742a343fa30970190a4628d140e30f8537",
+    "temporary_validation_sha256": "090fe17c535ba8ce9cb125be3dc214d74147324c22ff2ac9bb7b619ab1cf0a58",
     "platform": "linux/amd64",
     "toolchain": "go1.26.0",
-    "command": "CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags \"-X main.version=v8.0.15-2.0.0-rebuild.7\" -o artifacts/workbuddy.so ."
+    "command": "CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags \"-X main.version=v8.0.15-2.0.0-rebuild.12\" -o artifacts/workbuddy.so ."
   },
   "frontend_runtime": [
     {
@@ -63,7 +63,7 @@
       "license": "ISC"
     }
   ],
-  "npm_lock_sha256": "00b69d761e5cf1b628509ae3c3429e39446b0baa4de743030de2990510253631",
+  "npm_lock_sha256": "a20a4a0aed3ae7732791c1cad983a8da17743bf41ce274a17e69ab9f959aead5",
   "go_sum_sha256": "1570eee49c648fae1ae7fd2b8882df66108880306c76005191ddd07abae2781b",
   "license_files_sha256": {
     "licenses/CPA-MIT.txt": "879792e89cf1bdd6a8d446033ec87e30496f97dcafc4656dc53f641509b346a6",
@@ -89,7 +89,7 @@
     "toolchains",
     "historical documents"
   ],
-  "iteration_note": "Desktop refinement, summary filter consistency and two-column inspector; see ITERATION-7.md",
+  "iteration_note": "Official CPAMC v1.25.3 release frontend, fixture backend; see ITERATION-12.md",
   "sdk_source_contracts": {
     "result": "PASS",
     "version": "v8.0.15",
@@ -114,5 +114,20 @@
     "zip": "workbuddy-latest.zip",
     "screenshots": "actual current UI with synthetic fixture data",
     "temporary_artifacts_retained": false
+  },
+  "official_frontend_reference": {
+    "tested": true,
+    "version": "CPAMC v1.25.3",
+    "sha256": "866bae020785b59126a209e89389b77f673fd791beb2208ea650dcc07b3a108d",
+    "backend": "local fixture only"
+  },
+  "iteration_13": {
+    "version": "v8.0.15-2.0.0-rebuild.13",
+    "date": "2026-10-06",
+    "changes": "source-scoped model statistics; unified task eligibility presentation; searchable/filterable local history; remove empty official mobile action row",
+    "official_frontend": "CPAMC 1.25.3 unmodified SHA-pinned release",
+    "official_backend": false,
+    "real_accounts": false,
+    "production_changed": false
   }
 }

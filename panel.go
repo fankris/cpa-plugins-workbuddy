@@ -122,10 +122,8 @@ func hostAuthRuntimeFor(authIndex string) *wbAccountRuntime {
 	return out
 }
 
-// credits/checkin/plan fields are left empty — the panel renders skeletons
-// and fetches them lazily via /credits?auth_index=<idx>. This avoids hitting
-// upstream billing APIs for all accounts simultaneously on page load (which
-// causes 500 from rate-limited /v2/billing/meter/get-user-resource).
+// Populate billing details inside the plugin; the current UI has no lazy-fetch loop.
+// Cache/singleflight prevent repeat upstream reads, with bounded account fan-out.
 func buildDashboardEx(force, fetchCredits bool) map[string]any {
 	if pluginQuiescing() {
 		return map[string]any{"error": errPluginQuiescing.Error()}
@@ -166,10 +164,13 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 	// accounts this cuts cold-load latency from ~4×(3 serial upstream calls)
 	// to roughly one slowest account.
 	var wg sync.WaitGroup
+	slots := make(chan struct{}, 4)
 	for i, f := range files {
+		slots <- struct{}{}
 		wg.Add(1)
 		go func(i int, f pluginapi.HostAuthFileEntry) {
 			defer wg.Done()
+			defer func() { <-slots }()
 			acct := wbAccount{
 				AuthIndex: f.AuthIndex,
 				AuthID:    f.ID,
@@ -216,7 +217,9 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 					acct.TrialClaimed = hasTrialPack(cr)
 				}
 				// Keep note in sync (throttled); do not block dashboard on save errors.
-				_ = syncAuthNote(f.AuthIndex, f.ID, sa, cr, acct.Disabled)
+				if force {
+					_ = syncAuthNote(f.AuthIndex, f.ID, sa, cr, acct.Disabled)
+				}
 				acct.Error = strings.Join(errs, "; ")
 			} else {
 				// Light load: use cached values if available, but don't fetch upstream.
@@ -386,24 +389,18 @@ type panelAsset struct {
 // its script are the only servable files; anything else 404s so the route
 // cannot be used to probe the plugin's own file set.
 func servePanel(sub string) panelAsset {
-	if idx := strings.Index(sub, "?"); idx != -1 {
-		sub = sub[:idx]
-	}
-	sub = strings.TrimSpace(sub)
-	clean := "/" + strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(sub, "/"), "panel/"), "/")
-	if clean == "/" || clean == "/panel" || clean == "/panel.html" || sub == "" || sub == "/" || sub == "/panel" || sub == "/panel.html" {
+	switch sub {
+	case "", "/", "/panel", "/panel.html":
 		return panelAsset{contentType: "text/html; charset=utf-8", body: localizedPanelHTML()}
-	}
-	if clean == "/panel.css" || sub == "/panel.css" || strings.HasSuffix(sub, "/panel.css") {
-		return panelAsset{contentType: "text/css; charset=utf-8", body: panelCSS}
-	}
-	if clean == "/panel-i18n.js" || sub == "/panel-i18n.js" || strings.HasSuffix(sub, "/panel-i18n.js") {
+	case "/panel-i18n.js":
 		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelI18N}
-	}
-	if clean == "/panel.js" || sub == "/panel.js" || strings.HasSuffix(sub, "/panel.js") {
+	case "/panel.css":
+		return panelAsset{contentType: "text/css; charset=utf-8", body: panelCSS}
+	case "/panel.js":
 		return panelAsset{contentType: "application/javascript; charset=utf-8", body: panelJS}
+	default:
+		return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}
 	}
-	return panelAsset{contentType: "text/html; charset=utf-8", body: []byte("<h1>404</h1>"), statusCode: 404}
 }
 
 //go:embed panel.html

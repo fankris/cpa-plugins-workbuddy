@@ -32,8 +32,8 @@ func billingStub(t *testing.T, creditsRemain int64) (*httptest.Server, *int32) {
 		switch {
 		case r.URL.Path == "/v2/billing/meter/checkin-activity-status":
 			_, _ = w.Write([]byte(`{"code":0,"msg":"OK","data":{"checked_in":true,"today_checked_in":true}}`))
-		case r.URL.Path == "/v2/billing/meter/user-resource":
-			_, _ = w.Write([]byte(`{"code":0,"msg":"OK","data":{"packages":[{"remain":` + itoa(creditsRemain) + `,"used":1,"size":` + itoa(creditsRemain+1) + `,"name":"Free"}]}}`))
+		case r.URL.Path == "/v2/billing/meter/get-user-resource":
+			_, _ = w.Write([]byte(`{"code":0,"msg":"OK","data":{"Response":{"Data":{"TotalCount":1,"Accounts":[{"CapacityRemain":` + itoa(creditsRemain) + `,"CapacityUsed":1,"CapacitySize":` + itoa(creditsRemain+1) + `,"PackageName":"Free"}]}}}}`))
 		default:
 			_, _ = w.Write([]byte(`{"code":0,"msg":"OK","data":{"payment_type":"Free"}}`))
 		}
@@ -140,7 +140,7 @@ func TestAccountCacheKeepsPreviousValuesOnError(t *testing.T) {
 	defer restore()
 
 	sa := &storedAuth{}
-	prevCredits := &creditsSummary{TotalRemain: 55, TotalUsed: 5, TotalSize: 60}
+	prevCredits := &creditsSummary{TotalRemain: 55, TotalUsed: 5, TotalSize: 60, FetchedAt: "2026-01-01T00:00:00Z"}
 	accountCache.Store("auth-3", &accountCacheEntry{
 		plan:    "Pro",
 		credits: prevCredits,
@@ -156,6 +156,13 @@ func TestAccountCacheKeepsPreviousValuesOnError(t *testing.T) {
 	}
 	if cr == nil || cr.TotalRemain != 55 {
 		t.Errorf("previous credits must survive an upstream failure, got %+v", cr)
+	}
+	if cr.FetchedAt != "2026-01-01T00:00:00Z" || prevCredits.FetchedAt != cr.FetchedAt {
+		t.Fatal("failed refresh must not advance the old credits timestamp")
+	}
+	_, _, _, cachedErrors := cachedAccountDetails("auth-3", sa, false)
+	if len(cachedErrors) == 0 {
+		t.Fatal("cache hit must preserve refresh errors")
 	}
 }
 

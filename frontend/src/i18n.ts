@@ -2,6 +2,14 @@ import {useEffect,useState} from 'react';
 export type Locale='zh-CN'|'zh-TW'|'en'|'ru';
 export const locales:Locale[]=['zh-CN','zh-TW','en','ru'];
 const rows:Record<string,string[]>={
+ returnedModels:['当前返回模型','目前回傳模型','Returned models','Полученные модели'],
+ searchResults:['搜索操作或目标','搜尋操作或目標','Search action or target','Поиск действия или цели'],
+ resultFilter:['结果状态','結果狀態','Result status','Статус результата'],
+ needsReview:['需核对','需核對','Needs review','Нужна проверка'],
+ inProgress:['处理中','處理中','In progress','В процессе'],
+ settled:['已结束','已結束','Finished','Завершено'],
+ exportAllHint:['导出包含全部记录','匯出包含全部記錄','Export includes all records','Экспорт содержит все записи'],
+ importShort:['导入','匯入','Import','Импорт'],
  rowsPerPage:['每页','每頁','Rows per page','Строк на странице'],previousAccount:['上一个账号','上一個帳號','Previous account','Предыдущий аккаунт'],nextAccount:['下一个账号','下一個帳號','Next account','Следующий аккаунт'],attention:['待处理汇总','待處理彙總','Attention summary','Требуют внимания'],
  knownCredits:['已知积分','已知點數','Known credits','Известные кредиты'],
  mobileaccounts:['账号','帳號','Accounts','Аккаунты'],mobilemodels:['模型','模型','Models','Модели'],mobiletasks:['任务','任務','Tasks','Задачи'],mobileresults:['结果','結果','Results','Журнал'],

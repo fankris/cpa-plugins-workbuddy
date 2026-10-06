@@ -1,3 +1,42 @@
+# v8.0.15-2.0.0-rebuild.13 — 2026-10-06
+
+模型统计跟随当前来源；未加载区别于空集合。任务标题/状态合并，锁定优先，状态与筛选及操作共用判断。操作结果支持搜索/状态筛选及同源重挂保留；导出仍为全部脱敏记录。官方手机模型/任务页移除空操作行。77 Node / 539 Go PASS + 1 SKIP / 114 浏览器 + HTTP / 10 ABI。真实后端及账号未验收，生产不变。
+
+# v8.0.15-2.0.0-rebuild.12
+
+- Validate the unmodified official CPAMC v1.25.3 release UI, not only mock chrome.
+- Remove duplicate data refresh for recognized official host; preserve business quota refresh.
+- Fix dark-to-white/paper transitions and modal safety beneath official popovers.
+- Fifteen official-frontend fixture scenarios; 102 browser scenarios total. Seventeen screenshots, four from the actual official frontend.
+
+# v8.0.15-2.0.0-rebuild.11
+
+- Replace measured whole-page displacement with intentional desktop and portrait-mobile workspaces.
+- Mobile section title occupies available host-header space; in-flow navigation moves to bottom.
+- Wide landscape keeps top navigation; business geometry stays fixed when host controls widen.
+- Retain navigation location when known host controls hide. Add four structure checks, 87 browser scenarios total.
+
+# v8.0.15-2.0.0-rebuild.10
+
+- Remove duplicated settings/login UI and the read-only settings modal; retain CPA-native capabilities.
+- Expose mobile import directly; remove empty action menus from model/task pages.
+- Add nine four-locale toolbar scenarios; 83 browser scenarios total.
+
+# v8.0.15-2.0.0-rebuild.9
+
+- Replace blanket iframe padding with read-only host-chrome intersection measurements.
+- Separate external titlebar, corner overlay, narrow stacked overlay and cross-origin fallback layouts.
+- Keep modal close controls below host overlays; release space on toolbar resize/hide.
+- Inject runtime UI version from VERSION. Add 12 host-layout scenarios, 74 browser scenarios total; 13 screenshots with clearly labelled simulated host shells.
+
+# v8.0.15-2.0.0-rebuild.8
+
+- Restore plugin-side cold account billing hydration with bounded concurrency and cache reuse.
+- Parse flat/nested billing data and aggregate all resource pages; fail explicitly on malformed/auth failures.
+- Preserve original timestamps and refresh errors for stale snapshots.
+- Serve dual-track menu assets through actual management handlers.
+- Strengthen numeric and compiled C ABI billing assertions; 539 Go PASS, 10 ABI checks.
+
 # v8.0.15-2.0.0-rebuild.7
 
 - PC-specific compact summary/filter strip, aligned controls, desktop page-size selection and selection highlighting.

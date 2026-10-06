@@ -16,6 +16,7 @@ type accountCacheEntry struct {
 	credits *creditsSummary
 	plan    string
 	fetched time.Time
+	errs    []string
 }
 
 var (
@@ -51,7 +52,7 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 			// goroutines (reconcileOneAccount) may read the same entry.
 			// FetchedAt is stamped at Store time; if it's empty (legacy entry),
 			// the panel can derive it from prev.fetched if needed.
-			return prev.plan, prev.checkin, prev.credits, nil
+			return prev.plan, prev.checkin, prev.credits, append([]string(nil), prev.errs...)
 		}
 	}
 
@@ -113,6 +114,14 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 		}
 	}()
 	wg.Wait()
+	// Only freshly fetched credits get a new timestamp. Copy before stamping:
+	// published cache entries may still be read concurrently by the scheduler.
+	now := time.Now()
+	if cr != nil {
+		fresh := *cr
+		fresh.FetchedAt = now.UTC().Format(time.RFC3339)
+		cr = &fresh
+	}
 	// Stale-while-error: carry over previous values for fields that failed.
 	if prev != nil {
 		if ci == nil {
@@ -125,12 +134,7 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 			plan = prev.plan
 		}
 	}
-	now := time.Now()
-	if cr != nil {
-		// Stamp snapshot time for panel/API consumers (A-09 observability).
-		cr.FetchedAt = now.UTC().Format(time.RFC3339)
-	}
-	accountCache.Store(authID, &accountCacheEntry{checkin: ci, credits: cr, plan: plan, fetched: now})
+	accountCache.Store(authID, &accountCacheEntry{checkin: ci, credits: cr, plan: plan, fetched: now, errs: append([]string(nil), errList...)})
 	// Soft cap: if map is huge, drop oldest-looking entries beyond bound.
 	pruneAccountCacheSoftCap(accountCacheSoftCap)
 	return plan, ci, cr, errList

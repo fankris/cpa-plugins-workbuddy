@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-06",
+  "change": "Dual-track panel menu declarations in managementRegistration; wire-level regression guard in TestPanelMenuAndJSAreRegistered",
+  "source_files": [
+    "management.go",
+    "panel_assets_test.go"
+  ],
+  "targeted_panel_tests": "PASS",
+  "go_race": {
+    "pass": 533,
+    "skip": 1,
+    "fail": 0
+  },
+  "go_vet": "PASS",
+  "scope": "Declarations and unit tests only; no legacy handler changes; official-host sidebar behavior not tested",
+  "release_zip_rebuilt": false
+}

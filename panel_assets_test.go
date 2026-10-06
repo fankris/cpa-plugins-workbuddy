@@ -60,8 +60,9 @@ func TestServePanelUnknownPathIs404(t *testing.T) {
 	}
 }
 
-// Declare the dashboard menu on the current resource route and remove the old
-// legacy GET menu route, so hosts expose only the new panel entry.
+// Keep both menu discovery tracks on the wire: older/transitional hosts inspect
+// Routes, while modern hosts inspect Resources. This guards declarations, not
+// sidebar deduplication or runtime support in every host version.
 func TestPanelMenuAndJSAreRegistered(t *testing.T) {
 	raw, err := json.Marshal(managementRegistration())
 	if err != nil {
@@ -71,41 +72,47 @@ func TestPanelMenuAndJSAreRegistered(t *testing.T) {
 	if err := json.Unmarshal(raw, &reg); err != nil {
 		t.Fatalf("decode management registration wire response: %v", err)
 	}
-	var foundPanelMenu, foundJS, foundLegacyPanelRoute bool
-	menuCount := 0
+	routeMenuCount, resourceMenuCount := 0, 0
+	legacyPanelCount, resourcePanelCount, jsCount := 0, 0, 0
 	for _, r := range reg.Routes {
 		if r.Menu != "" {
-			menuCount++
+			routeMenuCount++
 		}
 		if r.Path == "/plugins/workbuddy/panel" {
-			foundLegacyPanelRoute = true
+			legacyPanelCount++
+			if r.Method != http.MethodGet || r.Menu != "WorkBuddy" {
+				t.Errorf("legacy panel route = %#v, want GET with WorkBuddy menu", r)
+			}
 		}
 	}
 	for _, r := range reg.Resources {
 		if r.Menu != "" {
-			menuCount++
+			resourceMenuCount++
 		}
-		if r.Path == "/panel" && r.Menu == "WorkBuddy" {
-			foundPanelMenu = true
+		if r.Path == "/panel" {
+			resourcePanelCount++
+			if r.Menu != "WorkBuddy" {
+				t.Errorf("panel resource menu = %q, want WorkBuddy", r.Menu)
+			}
 		}
-		if r.Path == "/panel.js" && r.Menu == "" {
-			foundJS = true
+		if r.Path == "/panel.js" {
+			jsCount++
+			if r.Menu != "" {
+				t.Error("panel.js must remain a menu-less resource route")
+			}
 		}
 	}
-	if !foundLegacyPanelRoute {
-		t.Error("the legacy /plugins/workbuddy/panel route must be kept for backward menu discovery")
+	if legacyPanelCount != 1 || resourcePanelCount != 1 {
+		t.Errorf("panel declarations: routes=%d resources=%d, want exactly one in each track", legacyPanelCount, resourcePanelCount)
 	}
-	if !foundPanelMenu {
-		t.Error("the /panel resource route must have Menu set for modern hosts")
+	if routeMenuCount != 1 || resourceMenuCount != 1 {
+		t.Errorf("menu declarations: routes=%d resources=%d, want one per track", routeMenuCount, resourceMenuCount)
 	}
 	if len(reg.Resources) != 4 {
 		t.Errorf("panel resources = %#v, want /panel menu, /panel.js /panel-i18n.js compatibility asset and /panel.css", reg.Resources)
 	}
-	if !foundPanelMenu {
-		t.Error("WorkBuddy menu must point to the new /panel resource route")
-	}
-	if !foundJS {
-		t.Error("panel.js must remain a menu-less resource route")
+	if jsCount != 1 {
+		t.Errorf("panel.js declarations = %d, want exactly one", jsCount)
 	}
 }
 
@@ -114,6 +121,10 @@ func TestPanelMenuAndJSAreRegistered(t *testing.T) {
 func TestManagementServesPanelAssets(t *testing.T) {
 	for _, tc := range []struct{ path, wantType string }{
 		{"/v0/resource/plugins/workbuddy/panel", "text/html"},
+		{"/v0/management/plugins/workbuddy/panel", "text/html"},
+		{"/v0/management/plugins/workbuddy/panel.js", "javascript"},
+		{"/v0/management/plugins/workbuddy/panel.css", "text/css"},
+		{"/v0/management/plugins/workbuddy/panel-i18n.js", "javascript"},
 		{"/v0/resource/plugins/workbuddy/panel.js", "javascript"},
 		{"/v0/resource/plugins/workbuddy/panel.css", "text/css"},
 		{"/v0/resource/plugins/workbuddy/panel-i18n.js", "javascript"},

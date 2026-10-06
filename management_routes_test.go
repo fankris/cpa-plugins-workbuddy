@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
@@ -176,6 +177,11 @@ func TestManagementCreditsQuery(t *testing.T) {
 		t.Fatalf("wrong account returned: %+v", first)
 	}
 
+	credits, _ := first["credits"].(map[string]any)
+	if credits["total_remain"] != float64(88) {
+		t.Fatalf("plugin must return actual parsed credits: %+v", first)
+	}
+
 	_, out = managementCallQuery(t, "/credits", map[string][]string{"auth_index": {"nope"}})
 	if out["error"] == nil {
 		accounts, _ := out["accounts"].([]any)
@@ -204,10 +210,29 @@ func TestManagementDashboardExposesAutomationSwitches(t *testing.T) {
 	installFakeAuthStore(t, store)
 	resetCheckinState()
 
+	resetAccountCache()
+	srv, calls := billingStub(t, 88)
+	restore := setBillingBase(srv.URL)
+	defer restore()
 	status, out := managementCall(t, http.MethodGet, "/accounts", "")
 	if status != http.StatusOK {
 		t.Fatalf("dashboard status = %d, want 200", status)
 	}
+	accounts := out["accounts"].([]any)
+	account := accounts[0].(map[string]any)
+	credits, _ := account["credits"].(map[string]any)
+	if credits["total_remain"] != float64(88) || account["plan"] != "Free" {
+		t.Fatalf("cold accounts load must fetch plugin billing details: %+v", account)
+	}
+	before := atomic.LoadInt32(calls)
+	managementCall(t, http.MethodGet, "/accounts", "")
+	if atomic.LoadInt32(calls) != before {
+		t.Fatal("warm dashboard must use billing cache")
+	}
+	if len(store.savedRecords()) != 0 {
+		t.Fatal("initial dashboard read must not write account credentials")
+	}
+
 	for _, key := range []string{
 		"accounts", "active_auth", "checkin_auto", "lifecycle_auto",
 		"keepalive_auto", "growth_auto", "travel_auto", "schedule", "server_time", "summary",

@@ -248,6 +248,8 @@ func billingCallWithClient(ctx context.Context, client pluginapi.HostHTTPClient,
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	data, err := billingCallOnceWithClient(ctx, client, sa, path, body)
 	for _, d := range billingRetryDelays {
 		if err == nil || !isTransientUpstreamErr(err) {
@@ -426,6 +428,9 @@ func parseBillingHTTPResponse(resp pluginapi.HTTPResponse, path string) (json.Ra
 			RetryAfter: retryAfter,
 		}
 	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, &upstreamError{StatusCode: resp.StatusCode, Path: path, Snippet: redactedSnippet(raw, 120)}
+	}
 	var env apiEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		// parse failed usually means upstream returned a non-JSON error page
@@ -580,27 +585,72 @@ func fetchUserResourceWithClient(ctx context.Context, client pluginapi.HostHTTPC
 		"PackageEndTimeRangeBegin": now.Format("2006-01-02 15:04:05"),
 		"PackageEndTimeRangeEnd":   now.Add(365 * 101 * 24 * time.Hour).Format("2006-01-02 15:04:05"),
 	}
-	data, err := billingCallWithClient(ctx, client, sa, "/v2/billing/meter/get-user-resource", body)
-	if err != nil {
-		return nil, err
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	type resourcePage struct {
+		TotalCount  int64             `json:"TotalCount"`
+		TotalDosage int64             `json:"TotalDosage"`
+		Accounts    []resourcePackage `json:"Accounts"`
 	}
-	var resp struct {
-		Response struct {
-			Data struct {
-				TotalCount  int64             `json:"TotalCount"`
-				TotalDosage int64             `json:"TotalDosage"` // package capacity pool, NOT consumption
-				Accounts    []resourcePackage `json:"Accounts"`
-			} `json:"Data"`
-		} `json:"Response"`
-	}
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, err
+	var combined resourcePage
+	var expected int64 = -1
+	for page := 1; ; page++ {
+		if page > 100 {
+			return nil, fmt.Errorf("credits: pagination limit exceeded; refusing partial balance")
+		}
+		body["PageNumber"] = page
+		data, err := billingCallWithClient(ctx, client, sa, "/v2/billing/meter/get-user-resource", body)
+		if err != nil {
+			return nil, err
+		}
+		// Both the nested billing envelope and the flat quota shape are used.
+		var shape map[string]json.RawMessage
+		if err := json.Unmarshal(data, &shape); err != nil {
+			return nil, err
+		}
+		if response, ok := shape["Response"]; ok {
+			var wrapper struct {
+				Data json.RawMessage `json:"Data"`
+			}
+			if err := json.Unmarshal(response, &wrapper); err != nil {
+				return nil, err
+			}
+			data = wrapper.Data
+			shape = nil
+			if err := json.Unmarshal(data, &shape); err != nil {
+				return nil, fmt.Errorf("credits: missing billing data: %w", err)
+			}
+		}
+		if _, ok := shape["Accounts"]; !ok {
+			if count, hasCount := shape["TotalCount"]; !hasCount || strings.TrimSpace(string(count)) != "0" {
+				return nil, fmt.Errorf("credits: upstream response missing package data")
+			}
+		}
+		var part resourcePage
+		if err := json.Unmarshal(data, &part); err != nil {
+			return nil, err
+		}
+		if expected < 0 {
+			expected = part.TotalCount
+		} else if expected != part.TotalCount {
+			return nil, fmt.Errorf("credits: package count changed during pagination; retry required")
+		}
+		combined.Accounts = append(combined.Accounts, part.Accounts...)
+		if part.TotalDosage > combined.TotalDosage {
+			combined.TotalDosage = part.TotalDosage
+		}
+		if int64(len(combined.Accounts)) >= expected {
+			break
+		}
+		if len(part.Accounts) == 0 {
+			return nil, fmt.Errorf("credits: incomplete package response; refusing partial balance")
+		}
 	}
 	// Aggregate ALL packages (体验版 + 多个签到/裂变包 + 其它赠送包).
 	// Remain = currently spendable. Used = consumed this cycle. Size = capacity.
 	// Daily check-in adds packages → Size and Remain go UP; that is grant, not usage.
 	sum := &creditsSummary{}
-	for _, a := range resp.Response.Data.Accounts {
+	for _, a := range combined.Accounts {
 		remain, used, size := packageRemainUsed(a)
 		sum.TotalRemain += remain
 		sum.TotalUsed += used
@@ -628,7 +678,7 @@ func fetchUserResourceWithClient(ctx context.Context, client pluginapi.HostHTTPC
 	}
 	// Upstream TotalDosage is the capacity pool (~sum of package sizes), not spend.
 	// Use it only as a size floor when pack sizes look incomplete.
-	if dosage := resp.Response.Data.TotalDosage; dosage > sum.TotalSize {
+	if dosage := combined.TotalDosage; dosage > sum.TotalSize {
 		sum.TotalSize = dosage
 		derived := sum.TotalSize - sum.TotalRemain
 		if derived < 0 {
@@ -638,7 +688,6 @@ func fetchUserResourceWithClient(ctx context.Context, client pluginapi.HostHTTPC
 			sum.TotalUsed = derived
 		}
 	}
-	_ = resp.Response.Data.TotalCount
 	return sum, nil
 }
 
