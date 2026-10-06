@@ -1,7 +1,7 @@
 {
-  "build": "v8.0.15-2.0.0-rebuild.12",
+  "build": "v8.0.15-2.0.0-rebuild.14",
   "independent_unreleased_build": true,
-  "date": "2026-10-05",
+  "date": "2026-10-06",
   "references": {
     "cpa": {
       "commit": "ba6992e30862e83e07b2a0d4e23de6bed6d1eb68",
@@ -36,10 +36,10 @@
   },
   "binary": {
     "retained": false,
-    "temporary_validation_sha256": "090fe17c535ba8ce9cb125be3dc214d74147324c22ff2ac9bb7b619ab1cf0a58",
+    "temporary_validation_sha256": "36dc42569914dc0ea3ea8a4ab2b72886d26cee72b9fd65522ba844d65fac2c00",
     "platform": "linux/amd64",
     "toolchain": "go1.26.0",
-    "command": "CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags \"-X main.version=v8.0.15-2.0.0-rebuild.12\" -o artifacts/workbuddy.so ."
+    "command": "CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags \"-X main.version=v8.0.15-2.0.0-rebuild.14\" -o artifacts/workbuddy.so ."
   },
   "frontend_runtime": [
     {
@@ -89,7 +89,7 @@
     "toolchains",
     "historical documents"
   ],
-  "iteration_note": "Official CPAMC v1.25.3 release frontend, fixture backend; see ITERATION-12.md",
+  "iteration_note": "Rebuild14: see ITERATION-14.md; unmodified CPAMC frontend, fixture backend only.",
   "sdk_source_contracts": {
     "result": "PASS",
     "version": "v8.0.15",
@@ -128,6 +128,22 @@
     "official_frontend": "CPAMC 1.25.3 unmodified SHA-pinned release",
     "official_backend": false,
     "real_accounts": false,
+    "production_changed": false
+  },
+  "iteration_14": {
+    "version": "v8.0.15-2.0.0-rebuild.14",
+    "manager_learning_commit": "508f803425ce74edc5b7dd6a082ceb415e1c7b62",
+    "learned_fields": [
+      "CycleEndTime UTC+8",
+      "credits",
+      "vendor",
+      "reasoning.supportedEfforts",
+      "reasoning.defaultEffort",
+      "supportsImages",
+      "maxInputTokens",
+      "maxOutputTokens"
+    ],
+    "model_metadata": "credential-scoped; no guessed price or capability",
     "production_changed": false
   }
 }

@@ -55,6 +55,7 @@ func modelContext(contexts ...context.Context) context.Context {
 }
 
 type modelResolution struct {
+	Details map[string]modelDetails
 	Models  []pluginapi.ModelInfo
 	Source  *realmModelsState
 	Status  string // ok, skipped (pin/static), fallback (discovery failed)
@@ -118,8 +119,13 @@ func resolveCredentialModels(parent context.Context, storage []byte, force bool)
 		out := modelResult(models, "discovery (cached)", "ok")
 		out.Source = realmModelStateFor(key)
 		out.Source.Count = len(models)
+		dynamicModelsCache.Lock()
+		out.Details = dynamicModelsCache.realms[key].details
+		dynamicModelsCache.Unlock()
 		return out
 	}
+	collector := &modelDetailsCollector{}
+	ctx = context.WithValue(ctx, modelDetailsKey{}, collector)
 	var models []pluginapi.ModelInfo
 	if discoverModelsFn != nil {
 		models, err = discoverModelsFn(token, service)
@@ -135,9 +141,9 @@ func resolveCredentialModels(parent context.Context, storage []byte, force bool)
 	if len(models) == 0 {
 		return fallback(fmt.Errorf("discovery payload had no user-facing models"))
 	}
-	storeDynamicModels(key, models)
+	storeDynamicModels(key, models, collector.Rows)
 	source := realmModelStateFor(key)
 	models = appendCustomModels(realm, models)
 	source.Count = len(models)
-	return modelResolution{Models: models, Source: source, Status: "ok"}
+	return modelResolution{Models: models, Details: collector.Rows, Source: source, Status: "ok"}
 }

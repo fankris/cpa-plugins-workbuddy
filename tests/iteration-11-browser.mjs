@@ -5,7 +5,7 @@ try{
  for(const [width,height] of [[320,568],[390,844],[844,390]]){
   const c=await b.newContext({viewport:{width,height},locale:'zh-CN',isMobile:true,hasTouch:true}),p=await c.newPage();await p.goto(base+'/host-cpamc');const f=p.frames().find(x=>x!==p.mainFrame());await f.locator('tbody tr').first().waitFor();
   for(const [index,tab] of ['accounts','models','tasks','results'].entries()){
-   await f.locator('.section-nav button').nth(index).click();
+   await f.locator('.section-nav [data-section="'+['accounts','models','tasks','results'][index]+'"]').click();
    const m=await f.evaluate(()=>{const nav=document.querySelector('.section-nav').getBoundingClientRect(),heading=document.querySelector('.host-workspace-heading').getBoundingClientRect();return{height:innerHeight,nav:nav.toJSON(),heading:heading.toJSON(),padding:getComputedStyle(document.querySelector('main')).paddingTop,first:document.querySelector('tbody tr')?.getBoundingClientRect().top}});
    assert.equal(m.padding,'8px');assert.ok(m.nav.bottom<=height+1&&(width<=640?m.nav.top>=height-72:m.nav.top<20),'navigation not in intended band: '+JSON.stringify({width,tab,...m}));
    if(width<=640){assert.ok(m.heading.top<16&&m.heading.height>30,'missing actual header content');

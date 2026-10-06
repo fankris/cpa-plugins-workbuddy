@@ -35,7 +35,7 @@ try{
  for(const locale of ['zh-CN','zh-TW','en','ru']){
   await page.evaluate(lang=>{localStorage.setItem('cli-proxy-language',JSON.stringify({state:{language:lang}}));window.dispatchEvent(new StorageEvent('storage',{key:'cli-proxy-language'}))},locale);
   for(let tab=0;tab<4;tab++){
-   await page.locator('.section-nav button').nth(tab).click();
+   await page.locator('.section-nav [data-section="'+['accounts','models','tasks','results'][tab]+'"]').click();
    if(tab===1)await page.locator('.models-table tbody tr').first().waitFor();
    if(tab===2){await page.locator('main>.toolbar select').selectOption('demo-001');await page.locator('.task-card').first().waitFor()}
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight+1&&document.querySelector('main').scrollHeight<=document.querySelector('main').clientHeight+1),'overflow '+locale+' '+tab);

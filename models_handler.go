@@ -73,7 +73,9 @@ func handleModelsQuery(req pluginapi.ManagementRequest, contexts ...context.Cont
 
 // panelModel is one model row for the panel.
 type panelModel struct {
-	ID string `json:"id"`
+	modelDetails
+	EffectiveEffort string `json:"effective_effort,omitempty"`
+	ID              string `json:"id"`
 	// Name is the display name when the upstream provides one.
 	Name                string `json:"name,omitempty"`
 	ContextLength       int64  `json:"context_length,omitempty"`
@@ -111,6 +113,11 @@ func panelModelsFromInfo(infos []pluginapi.ModelInfo) []panelModel {
 			MaxCompletionTokens: m.MaxCompletionTokens,
 			Disabled:            isGloballyDisabledModel(id),
 		})
+	}
+	for i := range out {
+		if strings.HasPrefix(strings.ToLower(out[i].ID), "hy3") || strings.HasPrefix(strings.ToLower(out[i].ID), "hy4") {
+			out[i].EffectiveEffort = "high"
+		}
 	}
 	sortPanelModels(out)
 	return out
@@ -199,5 +206,8 @@ func credentialModelsResponse(ctx context.Context, sa *storedAuth, force bool) m
 	}
 	result := resolveCredentialModels(ctx, raw, force)
 	models := panelModelsFromInfo(result.Models)
+	for i := range models {
+		models[i].modelDetails = result.Details[models[i].ID]
+	}
 	return map[string]any{"status": result.Status, "models": models, "count": len(models), "source": result.Source, "warning": result.Warning}
 }

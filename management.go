@@ -141,15 +141,18 @@ func setManagementBasePath(p string) {
 	managementBasePathCacheMu.Unlock()
 }
 
+const panelMenuDescription = "WorkBuddy: dashboard, accounts, credits, models, tasks, results and plugin settings."
+
 func managementRegistration() managementRegistrationResponse {
 	base := "/plugins/" + providerName
 	return managementRegistrationResponse{
 		Routes: []managementRoute{
 			// Keep both discovery tracks: older hosts inspect Routes, modern hosts Resources.
-			{Method: http.MethodGet, Path: base + "/panel", Menu: "WorkBuddy"},
+			{Method: http.MethodGet, Path: base + "/panel", Menu: "WorkBuddy", Description: panelMenuDescription},
 			{Method: http.MethodGet, Path: base + "/panel.js"},
 			{Method: http.MethodGet, Path: base + "/panel.css"},
 			{Method: http.MethodGet, Path: base + "/panel-i18n.js"},
+			{Method: http.MethodGet, Path: base + "/settings", Description: "Read active WorkBuddy automation and scheduler settings."},
 			{Method: http.MethodGet, Path: base + "/accounts", Description: "List WorkBuddy accounts with credits, plan and check-in status."},
 			{Method: http.MethodPost, Path: base + "/refresh", Description: "Force refresh quota/cache for all accounts."},
 			{Method: http.MethodPost, Path: base + "/checkin", Description: "Manually check in one account (auth_index) or all."},
@@ -176,7 +179,7 @@ func managementRegistration() managementRegistrationResponse {
 			{Method: http.MethodPost, Path: base + "/daily-quota/reset", Description: "Clear locally recorded daily free-token counters (all accounts, or one with auth_index). Does not restore real upstream allowance."},
 		},
 		Resources: []resourceRoute{
-			{Path: "/panel", Menu: "WorkBuddy", Description: "WorkBuddy dashboard: credits, check-in, plan, import."},
+			{Path: "/panel", Menu: "WorkBuddy", Description: panelMenuDescription},
 			{Path: "/panel.css", Description: "WorkBuddy panel styles."},
 			{Path: "/panel.js", Description: "WorkBuddy panel script."},
 			{Path: "/panel-i18n.js", Description: "WorkBuddy language resources."},
@@ -287,6 +290,8 @@ func handleManagement(raw []byte) ([]byte, error) {
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsQuery(req, modelsCtx)))
 	case req.Method == http.MethodPost && path == base+"/models/refresh":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleModelsRefresh(req, modelsCtx)))
+	case req.Method == http.MethodGet && path == base+"/settings":
+		return okEnvelope(mgmtJSONResponse(http.StatusOK, pluginRuntimeSettings()))
 	case req.Method == http.MethodGet && path == base+"/models/catalog":
 		models := handleGlobalModelCatalog()
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, map[string]any{"models": models, "count": len(models)}))

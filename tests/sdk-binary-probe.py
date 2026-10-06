@@ -89,6 +89,9 @@ checks.append('actual release C ABI initialization and schema 6 registration')
 rc,menus=invoke('management.register',{});assert rc==0 and menus['ok'],menus
 assert any(r.get('path')=='/plugins/workbuddy/panel' and r.get('method')=='GET' and r.get('menu')=='WorkBuddy' for r in menus['result']['routes'])
 assert any(r.get('path')=='/panel' and r.get('menu')=='WorkBuddy' for r in menus['result']['resources'])
+legacy=next(r for r in menus['result']['routes'] if r.get('path')=='/plugins/workbuddy/panel')
+resource=next(r for r in menus['result']['resources'] if r.get('path')=='/panel')
+assert legacy.get('description') and legacy['description']==resource.get('description'),'legacy-first menu merge loses description'
 for base in ('/v0/management/plugins/workbuddy','/v0/resource/plugins/workbuddy'):
  for asset in ('/panel','/panel.js','/panel.css','/panel-i18n.js'):
   rc,result=invoke('management.handle',{'Method':'GET','Path':base+asset})

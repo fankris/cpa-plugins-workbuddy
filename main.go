@@ -423,7 +423,7 @@ type registrationCapability struct {
 }
 
 // version is injected at build time via -ldflags "-X main.version=...".
-var version = "v8.0.15-1.0.47"
+var version = "v8.0.15-1.0.48"
 
 func wbRegistration() registration {
 	return registration{
@@ -474,6 +474,7 @@ const dynamicModelsCacheTTL = 5 * time.Minute
 // gateway never served. Error-only entries (models nil) are cache misses for
 // fetch purposes but keep the last failure visible to the panel.
 type realmModelsEntry struct {
+	details   map[string]modelDetails
 	models    []pluginapi.ModelInfo
 	fetched   time.Time
 	source    string // "discovery" | "pin ..." | "static ..."

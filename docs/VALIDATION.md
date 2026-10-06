@@ -1,6 +1,6 @@
 # 当前验证与复现
 
-当前保留 rebuild.13 最新源码、唯一最新 ZIP 与离线 HTML。摘要见 [VALIDATION-13.json](VALIDATION-13.json)，变更与限制见 [ITERATION-13.md](ITERATION-13.md)。旧版本安装包及临时二进制、依赖和原始测试输出按清理规则删除；最新 ZIP 含插件与完整源码。
+当前保留 rebuild.14 最新源码、唯一最新 ZIP 与离线 HTML。摘要见 [VALIDATION-14.json](VALIDATION-14.json)，变更与限制见 [ITERATION-14.md](ITERATION-14.md)。旧版本安装包及临时二进制、依赖和原始测试输出按清理规则删除；最新 ZIP 含插件与完整源码。
 
 ```sh
 make frontend
@@ -17,3 +17,5 @@ ABI 探针需先编译 `artifacts/workbuddy.so`，再运行 `python3 tests/sdk-b
 官方前端回归需先运行 `python3 tests/fetch-official-cpamc.py`，再运行 `node tests/iteration-12-browser.mjs`。其后端仍是夹具，不是官方 CPA 后端验收。
 
 本轮：77 项前端、539 Go PASS / 1 SKIP、114 组浏览器 + 普通 HTTP、10 组 ABI；另运行 iteration-12-browser 与 iteration-13-browser，后者需原版官方 HTML（`python3 tests/fetch-official-cpamc.py`）。原版官方前端共 27 场景，不等于真实后端验收。
+
+Rebuild14 当前：Go548 PASS/1 SKIP，77 Node，129浏览器+HTTP，10 ABI；实际官方前端42组。新增 iteration-14-browser。浏览器旧测试已改用稳定 data-section 选择器，原“无设置入口”限制按用户新增插件设置页需求更新；仍禁止重复原生OAuth/全局配置入口。

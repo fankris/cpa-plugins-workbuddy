@@ -22,6 +22,14 @@ tasks=[{'task_code':'demo-one','title':'完成首次工作空间配置','descrip
 requests=[]
 run=None
 initial=copy.deepcopy((accounts,models,config,tasks))
+for account in accounts:
+ if account.get('credits'):
+  cr=account['credits'];soon=account['auth_index'] in ('demo-001','demo-002');end=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(days=2 if soon else 20)).isoformat()
+  for package in cr['packages']:package['cycle_end']=end
+  cr['expiry']={'known':True,'within_7_days':cr['total_remain'] if soon else 0,'next_at':end,'next_amount':cr['total_remain'],'unknown_remain':0}
+for i,model in enumerate(models):
+ model.update({'efforts':['low','high'] if i==0 else ['high'],'default_effort':'high','credits':'x0.00' if i==0 else 'x0.03','vendor':'Fixture family','supports_images':i==0,'only_reasoning':True,'metadata_source':'fixture'})
+initial=copy.deepcopy((accounts,models,config,tasks))
 class Handler(BaseHTTPRequestHandler):
  def log_message(self,*args):pass
  def send(self,data,status=200,content='application/json; charset=utf-8'):
@@ -53,6 +61,7 @@ class Handler(BaseHTTPRequestHandler):
     content=content.replace(b'__WB_MANAGEMENT_BASE__',BASE.encode()).replace(b'__WB_RESOURCE_BASE__',RESOURCE.encode()).replace(b'<head>',b'<head><script>window.__WB_PREVIEW__=true;sessionStorage.setItem("workbuddy-mgmt-key","local-fixture-only");</script>')
    return self.send(content,content={'html':'text/html','js':'application/javascript','css':'text/css'}[name.split('.')[-1]]+'; charset=utf-8')
   requests.append({'method':'GET','path':p})
+  if p==BASE+'/settings':return self.send({k:config.get(k,v) for k,v in {'checkin_auto':True,'lifecycle_auto':True,'token_keepalive':False,'travel_auto':False,'scheduler_mode':'host'}.items()})
   if p==BASE+'/accounts':return self.send({'accounts':accounts,'server_time':now()})
   if p=='/v8/management/config/plugins/configs/workbuddy':return self.send(config)
   if p==BASE+'/models/catalog':return self.send({'models':models})

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
@@ -21,6 +22,7 @@ const (
 	schedulerModeBuiltin = "builtin"
 	schedulerModeOff     = "off"
 	schedulerModeCredits = "credits"
+	schedulerModeExpiry  = "credits_expiry"
 
 	// builtinStrategy is the CPA built-in strategy this plugin delegates to.
 	builtinStrategy = pluginapi.SchedulerBuiltinRoundRobin
@@ -59,6 +61,9 @@ func handleSchedulerPick(raw []byte) ([]byte, error) {
 	}
 
 	mode := loadedSchedulerMode()
+	if mode == schedulerModeExpiry {
+		return okEnvelope(pickExpiringCredits(req.Candidates, time.Now()))
+	}
 	if mode == schedulerModeHost {
 		// CPA v8.0.13 pickViaPluginScheduler returns unhandled here; its
 		// caller then invokes the configured selector for single/mixed routes.

@@ -480,11 +480,15 @@ func cachedDynamicModelsForRealm(realm string) ([]pluginapi.ModelInfo, bool) {
 	return append([]pluginapi.ModelInfo(nil), newest.models...), true
 }
 
-func storeDynamicModels(key string, models []pluginapi.ModelInfo) {
+func storeDynamicModels(key string, models []pluginapi.ModelInfo, details ...map[string]modelDetails) {
+	var meta map[string]modelDetails
+	if len(details) > 0 {
+		meta = details[0]
+	}
 	copyModels := append([]pluginapi.ModelInfo(nil), models...)
 	now := time.Now()
 	dynamicModelsCache.Lock()
-	dynamicModelsCache.realms[key] = realmModelsEntry{models: copyModels, fetched: now, source: "discovery"}
+	dynamicModelsCache.realms[key] = realmModelsEntry{models: copyModels, details: meta, fetched: now, source: "discovery"}
 	// Keep a realm-level diagnostic snapshot for the panel and legacy tests, but
 	// never use this aggregate entry as a model-for-auth cache hit.
 	if i := strings.IndexByte(key, ':'); i > 0 {
@@ -790,6 +794,9 @@ func callModelsAPIOnceContext(parent context.Context, accessToken string, realm 
 		}
 	}
 	out := modelsFromDiscovery(apiResp.Data.Models, cliModelIDs)
+	if collector, ok := ctx.Value(modelDetailsKey{}).(*modelDetailsCollector); ok {
+		collector.Rows = detailsFromDiscovery(apiResp.Data.Models)
+	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no user-facing models in discovery payload (cli agent list empty and data.models empty/disabled)")
 	}
@@ -808,7 +815,7 @@ func discoveryContextDegraded(models []discoveredModel) bool {
 			continue
 		}
 		enabled++
-		if rawJSONI64(m.ContextWindow) > 0 {
+		if rawJSONI64(m.ContextWindow) > 0 || rawJSONI64(m.MaxInputTokens) > 0 {
 			return false
 		}
 	}
@@ -841,7 +848,11 @@ type discoveredModel struct {
 	Configurable       bool            `json:"configurable"`
 	Configured         bool            `json:"configured"`
 	IsDefault          bool            `json:"isDefault"`
-	SupportsImages     bool            `json:"supportsImages"`
+	SupportsImages     bool            `json:"-"`
+	ImageDeclaration   *bool           `json:"supportsImages"`
+	Vendor             string          `json:"vendor"`
+	MaxInputTokens     json.RawMessage `json:"maxInputTokens"`
+	MaxOutputTokens    json.RawMessage `json:"maxOutputTokens"`
 	SupportsReasoning  bool            `json:"supportsReasoning"`
 	OnlyReasoning      bool            `json:"onlyReasoning"`
 	Reasoning          json.RawMessage `json:"reasoning"`
@@ -949,6 +960,25 @@ func modelsFromDiscovery(dataModels []discoveredModel, cliModelIDs []string) []p
 			MaxCompletionTokens:        rawJSONI64(m.MaxTokens),
 			OwnedBy:                    providerName,
 			SupportedGenerationMethods: []string{"chat"},
+		}
+		if info.ContextLength == 0 {
+			info.ContextLength = rawJSONI64(m.MaxInputTokens)
+		}
+		if info.MaxCompletionTokens == 0 {
+			info.MaxCompletionTokens = rawJSONI64(m.MaxOutputTokens)
+		}
+		var reason struct {
+			Levels []string `json:"supportedEfforts"`
+		}
+		_ = json.Unmarshal(m.Reasoning, &reason)
+		if len(reason.Levels) > 0 {
+			info.Thinking = &pluginapi.ThinkingSupport{Levels: reason.Levels}
+		}
+		if m.ImageDeclaration != nil {
+			info.SupportedInputModalities = []string{"text"}
+			if *m.ImageDeclaration && !m.DisabledMultimodal {
+				info.SupportedInputModalities = append(info.SupportedInputModalities, "image")
+			}
 		}
 		if info.Name == "" {
 			info.Name = info.ID
@@ -1268,6 +1298,8 @@ func filterExcludedModels(models []pluginapi.ModelInfo, host pluginapi.HostConfi
 
 func handleGlobalModelCatalog() []panelModel {
 	seen := make(map[string]pluginapi.ModelInfo)
+	meta := map[string]modelDetails{}
+	conflict := map[string]bool{}
 	add := func(model pluginapi.ModelInfo) {
 		id := strings.TrimSpace(model.ID)
 		key := strings.ToLower(id)
@@ -1290,8 +1322,19 @@ func handleGlobalModelCatalog() []panelModel {
 			if marshalErr != nil {
 				continue
 			}
-			for _, model := range fetchDynamicModelsFromStorage(raw) {
+			resolved := resolveCredentialModels(pluginContext(), raw, false)
+			for _, model := range resolved.Models {
 				add(model)
+				if d, ok := resolved.Details[model.ID]; ok {
+					key := strings.ToLower(model.ID)
+					old, exists := meta[key]
+					a, _ := json.Marshal(old)
+					b, _ := json.Marshal(d)
+					if exists && string(a) != string(b) {
+						conflict[key] = true
+					}
+					meta[key] = d
+				}
 			}
 		}
 	}
@@ -1312,6 +1355,15 @@ func handleGlobalModelCatalog() []panelModel {
 			MaxCompletionTokens: model.MaxCompletionTokens,
 			Disabled:            isGloballyDisabledModel(model.ID),
 		})
+	}
+	for i := range out {
+		key := strings.ToLower(out[i].ID)
+		if strings.HasPrefix(key, "hy3") || strings.HasPrefix(key, "hy4") {
+			out[i].EffectiveEffort = "high"
+		}
+		if !conflict[key] {
+			out[i].modelDetails = meta[key]
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].ID) < strings.ToLower(out[j].ID) })
 	return out

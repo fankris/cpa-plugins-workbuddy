@@ -21,3 +21,8 @@ console.log(JSON.stringify({
  checks:['Handled=false returns unhandled','explicit delegation names a strategy','single route calls configured selector','mixed route calls configured selector'],
  realCPALoadingTested:false, realRoutingTested:false
 }, null, 2));
+const management=fs.readFileSync(path.join(moduleInfo.Dir,'internal/pluginhost/management.go'),'utf8');
+assert.ok(management.indexOf('range resp.Routes')<management.indexOf('range resp.Resources'));
+assert.match(management,/func resourceRouteFromManagementRoute[\s\S]*?Description:\s*item.Description/);
+assert.match(management,/if _, exists := routes\[key\]; exists[\s\S]*?return true/);
+console.log('PASS: pinned host processes legacy first, copies its description, and skips conflicting Resources');

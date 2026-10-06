@@ -59,7 +59,7 @@ func validateLifecycleConfig(raw []byte) error {
 	enums := map[string][]string{
 		"login_region":   {"cn", "intl", "海外", "国际"},
 		"login_platform": {"cli", "ide", "ide模式"},
-		"scheduler_mode": {schedulerModeHost, schedulerModeBuiltin, schedulerModeOff, schedulerModeCredits},
+		"scheduler_mode": {schedulerModeHost, schedulerModeBuiltin, schedulerModeOff, schedulerModeCredits, schedulerModeExpiry},
 	}
 	for i := 0; i+1 < len(cfg.Content); i += 2 {
 		key := strings.ToLower(strings.TrimSpace(cfg.Content[i].Value))

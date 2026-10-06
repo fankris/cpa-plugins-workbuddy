@@ -641,6 +641,9 @@ func configure(raw []byte) {
 			if cfg.equalsFold("scheduler_mode", schedulerModeHost) {
 				nextSchedulerMode = schedulerModeHost
 			}
+			if cfg.equalsFold("scheduler_mode", schedulerModeExpiry) {
+				nextSchedulerMode = schedulerModeExpiry
+			}
 			if cfg.equalsFold("scheduler_mode", schedulerModeCredits) {
 				nextSchedulerMode = schedulerModeCredits
 			}
