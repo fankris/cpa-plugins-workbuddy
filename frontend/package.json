@@ -1,6 +1,6 @@
 {
   "name": "workbuddy-cpa-panel",
-  "version": "2.0.0-rebuild.14",
+  "version": "2.0.0-rebuild.16",
   "private": true,
   "type": "module",
   "scripts": {

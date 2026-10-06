@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
@@ -235,11 +236,14 @@ func TestManagementDashboardExposesAutomationSwitches(t *testing.T) {
 
 	for _, key := range []string{
 		"accounts", "active_auth", "checkin_auto", "lifecycle_auto",
-		"keepalive_auto", "growth_auto", "travel_auto", "schedule", "server_time", "summary",
+		"keepalive_auto", "growth_auto", "travel_auto", "schedule", "server_time", "server_time_iso", "summary",
 	} {
 		if _, ok := out[key]; !ok {
 			t.Errorf("dashboard payload is missing %q", key)
 		}
+	}
+	if _, err := time.Parse(time.RFC3339, out["server_time_iso"].(string)); err != nil {
+		t.Fatal("dashboard clock must include timezone", err)
 	}
 	if _, ok := out["usage_report"]; ok {
 		t.Error("usage_report was removed in 0.9.30 and must not reappear in the dashboard")

@@ -294,16 +294,17 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 		out[i].Selected = out[i].AuthID == activeID
 	}
 	resp := map[string]any{
-		"accounts":       out,
-		"active_auth":    activeID,
-		"checkin_auto":   auto,
-		"lifecycle_auto": lifecycleEnabled(),
-		"keepalive_auto": keepaliveEnabled(),
-		"growth_auto":    growthAutoEnabled(),
-		"travel_auto":    travelAutoEnabled(),
-		"schedule":       []string{"09:00", "21:00"},
-		"server_time":    time.Now().Format("2006-01-02 15:04:05"),
-		"summary":        sum,
+		"accounts":        out,
+		"active_auth":     activeID,
+		"checkin_auto":    auto,
+		"lifecycle_auto":  lifecycleEnabled(),
+		"keepalive_auto":  keepaliveEnabled(),
+		"growth_auto":     growthAutoEnabled(),
+		"travel_auto":     travelAutoEnabled(),
+		"schedule":        []string{"09:00", "21:00"},
+		"server_time":     time.Now().Format("2006-01-02 15:04:05"),
+		"server_time_iso": time.Now().UTC().Format(time.RFC3339),
+		"summary":         sum,
 		// Provider-wide request terminal outcomes (succeeded/failed/rejected/
 		// canceled). Distinct from per-account credits: this is the only place
 		// the panel can see requests that arrived but were rejected before

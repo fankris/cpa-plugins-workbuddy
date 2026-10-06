@@ -1,5 +1,5 @@
 {
-  "build": "v8.0.15-2.0.0-rebuild.14",
+  "build": "v8.0.15-2.0.0-rebuild.16",
   "independent_unreleased_build": true,
   "date": "2026-10-06",
   "references": {
@@ -36,10 +36,10 @@
   },
   "binary": {
     "retained": false,
-    "temporary_validation_sha256": "36dc42569914dc0ea3ea8a4ab2b72886d26cee72b9fd65522ba844d65fac2c00",
+    "temporary_validation_sha256": "2cdf2893ed07c634f30daee4ddd2f25ff39e7315c32f9e628f99cf0838e4219f",
     "platform": "linux/amd64",
     "toolchain": "go1.26.0",
-    "command": "CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags \"-X main.version=v8.0.15-2.0.0-rebuild.14\" -o artifacts/workbuddy.so ."
+    "command": "CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -ldflags \"-X main.version=v8.0.15-2.0.0-rebuild.16\" -o artifacts/workbuddy.so ."
   },
   "frontend_runtime": [
     {
@@ -89,7 +89,7 @@
     "toolchains",
     "historical documents"
   ],
-  "iteration_note": "Rebuild14: see ITERATION-14.md; unmodified CPAMC frontend, fixture backend only.",
+  "iteration_note": "Rebuild16: Manager-inspired model filtering, sorting and compact responsive metadata; see ITERATION-16.md.",
   "sdk_source_contracts": {
     "result": "PASS",
     "version": "v8.0.15",
@@ -144,6 +144,31 @@
       "maxOutputTokens"
     ],
     "model_metadata": "credential-scoped; no guessed price or capability",
+    "production_changed": false
+  },
+  "iteration_15": {
+    "version": "v8.0.15-2.0.0-rebuild.15",
+    "cpamp_reference": {
+      "result": "PASS",
+      "repository": "https://github.com/seakee/CPA-Manager-Plus",
+      "commit": "fb3e8f501f47a29b0fa66a5bf31f0f36739750d3",
+      "files": {
+        "apps/manager-server/internal/http/router/router.go": "69e1c03ec133fae600309c020b83e2c70bace2529d94c62b439b84b42f629354",
+        "apps/web/src/services/api/plugins.ts": "68732e6b1cf15a1e7a2a5ab261a462d93ea278cfe98dde7b2ad54f05f73a47a4",
+        "apps/manager-server/internal/service/proxy/service.go": "d8391f70184ca80eafc97c45ce37891933d93f4a54012fb0446cfc0d4d421626"
+      },
+      "scope": "source contract only, no actual CPAMP instance"
+    },
+    "user_cpamp_version": "not provided",
+    "cpamp_real_instance_tested": false,
+    "production_changed": false
+  },
+  "iteration_16": {
+    "version": "v8.0.15-2.0.0-rebuild.16",
+    "manager_commit": "508f803425ce74edc5b7dd6a082ceb415e1c7b62",
+    "reference_file": "web/app/(main)/models/page.tsx",
+    "reference_sha256": "256a594379167d1501685c488148f5987b00be6a97366223291491d6eaa09c45",
+    "learned": "family/capability filters, unknown-last cost ordering, honest initial state, grouped model metadata",
     "production_changed": false
   }
 }

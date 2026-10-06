@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/seakee/CPA-Manager-Plus",
+  "commit": "fb3e8f501f47a29b0fa66a5bf31f0f36739750d3",
+  "files": {
+    "apps/manager-server/internal/http/router/router.go": "69e1c03ec133fae600309c020b83e2c70bace2529d94c62b439b84b42f629354",
+    "apps/web/src/services/api/plugins.ts": "68732e6b1cf15a1e7a2a5ab261a462d93ea278cfe98dde7b2ad54f05f73a47a4",
+    "apps/manager-server/internal/service/proxy/service.go": "d8391f70184ca80eafc97c45ce37891933d93f4a54012fb0446cfc0d4d421626"
+  }
+}

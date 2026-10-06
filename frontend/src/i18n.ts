@@ -2,6 +2,28 @@ import {useEffect,useState} from 'react';
 export type Locale='zh-CN'|'zh-TW'|'en'|'ru';
 export const locales:Locale[]=['zh-CN','zh-TW','en','ru'];
 const rows:Record<string,string[]>={
+modelFilters:["模型筛选", "模型篩選", "Model filters", "Фильтры моделей"],
+modelSort:["模型排序", "模型排序", "Model ordering", "Сортировка моделей"],
+capabilityDeclaration:["能力声明", "能力宣告", "Declared capability", "Заявленные возможности"],
+imageDeclared:["声明支持图片", "宣告支援圖片", "Image input declared", "Заявлен ввод изображений"],
+textDeclared:["声明文本输入", "宣告文字輸入", "Text input declared", "Заявлен текстовый ввод"],
+reasoningDeclared:["声明推理档位", "宣告推理檔位", "Reasoning declared", "Заявлено рассуждение"],
+largeContext:["上下文 ≥128K", "上下文 ≥128K", "Context ≥128K", "Контекст ≥128K"],
+sourceOrder:["来源顺序", "來源順序", "Source order", "Порядок источника"],
+nameOrder:["名称排序", "名稱排序", "Name", "По имени"],
+contextOrder:["上下文从大到小", "上下文由大到小", "Largest context first", "Сначала больший контекст"],
+creditOrder:["倍率从低到高", "倍率由低到高", "Lowest multiplier first", "Сначала меньший множитель"],
+catalogUnavailable:["尚未取得模型目录", "尚未取得模型目錄", "Model catalog not loaded", "Каталог не загружен"],
+declaredNotTested:["目录声明 ≠ 实测能力", "目錄宣告 ≠ 實測能力", "Catalog claims ≠ tested capabilities", "Заявлено ≠ проверено"],
+multiplierHint:["上游倍率原文，不是实际账单价格；未知或复合倍率不按0排序。", "上游倍率原文，非實際帳單價格；未知或複合倍率不以0排序。", "Upstream multiplier, not a billing quote. Unknown or compound values are not treated as zero.", "Множитель источника — не фактическая цена. Неизвестные значения не считаются нулём."],
+inputDeclarationHint:["这是上游目录的图片输入声明，不代表已验证模型原生多模态能力。", "這是上游目錄圖片輸入宣告，不代表已驗證原生多模態能力。", "Upstream image-input declaration, not verified native multimodal capability.", "Заявление источника о вводе изображений, а не проверка мультимодальности."],
+
+ balanceExpiry:['余额 / 最早到期','餘額 / 最早到期','Balance / next expiry','Баланс / ближайший срок'],
+ expiredShort:['已到期','已到期','Expired','Истёк'],
+ nextExpiryShort:['最早到期','最早到期','Next expiry','Ближайший срок'],
+ daysUnit:['天','天',' days',' дн.'],
+ expiryElapsed:['已到期，请刷新积分','已到期，請更新積分','Expired; refresh credits','Срок истёк; обновите баланс'],
+ noDatedCredits:['无已知待到期积分','無已知待到期積分','No known expiring credits','Нет известных истекающих кредитов'],
  activeSettings:["实际生效值","實際生效值","Active value","Активное значение"],
  verifySettings:["核对运行态","核對執行態","Verify active settings","Проверить применение"],
 dashboard:["仪表盘", "儀表板", "Dashboard", "Обзор"],

@@ -62,8 +62,8 @@ class Handler(BaseHTTPRequestHandler):
    return self.send(content,content={'html':'text/html','js':'application/javascript','css':'text/css'}[name.split('.')[-1]]+'; charset=utf-8')
   requests.append({'method':'GET','path':p})
   if p==BASE+'/settings':return self.send({k:config.get(k,v) for k,v in {'checkin_auto':True,'lifecycle_auto':True,'token_keepalive':False,'travel_auto':False,'scheduler_mode':'host'}.items()})
-  if p==BASE+'/accounts':return self.send({'accounts':accounts,'server_time':now()})
-  if p=='/v8/management/config/plugins/configs/workbuddy':return self.send(config)
+  if p==BASE+'/accounts':return self.send({'accounts':accounts,'server_time':now(),'server_time_iso':now()})
+  if p in ('/v8/management/config/plugins/configs/workbuddy',BASE+'/config'):return self.send(config)
   if p==BASE+'/models/catalog':return self.send({'models':models})
   if p==BASE+'/models':
    idx=q.get('auth_index',[''])[0];return self.send({'auth_index':idx,'models':models,'source':{'source':'local demo fixture'}})
@@ -89,7 +89,7 @@ class Handler(BaseHTTPRequestHandler):
    accounts,models,config,tasks=copy.deepcopy(initial);run=None;requests=[];return self.send({'demo':True,'reset':True})
   requests.append({'method':self.command,'path':p})
   with lock:
-   if p=='/v8/management/config/plugins/configs/workbuddy' and self.command=='PUT':
+   if p in ('/v8/management/config/plugins/configs/workbuddy',BASE+'/config') and self.command=='PUT':
     config=body
     for m in models:m['disabled']=m['id'] not in config.get('models_enabled',[]) or m['id'] in config.get('models_disabled',[])
     return self.send({'status':'ok'})

@@ -378,3 +378,32 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
  .section-nav>div{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0}
  .section-nav button{width:auto}.settings-workspace .panel-heading{flex-direction:row;align-items:center;gap:8px}.settings-workspace .panel-heading .button{font-size:10px;padding:5px 9px}
 }
+.credit-expiring{white-space:normal;line-height:1.3;overflow-wrap:anywhere}.expiry-days{white-space:nowrap}.expiry-note>.credit-expiring{font-size:11px}
+.accounts-table .credit-cell .progress{display:none}
+@media(min-width:641px) and (min-height:501px),(min-width:641px) and (pointer:fine){
+ .accounts-table th:nth-child(6){width:166px;overflow:hidden;text-overflow:ellipsis}
+ .accounts-table .credit-expiring{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+}
+.expiry-mobile-label{display:none}
+@media(max-width:640px),(max-height:500px) and (pointer:coarse){
+ .accounts-table td.credit-cell{display:grid;grid-template-columns:auto 1fr;column-gap:6px;row-gap:0}
+ .accounts-table .credit-cell:before{grid-column:1;grid-row:1}.accounts-table .credit-cell>strong{grid-column:2;grid-row:1}
+ .accounts-table .credit-expiring{grid-column:1/-1;font-size:9px}.expiry-mobile-label{display:inline}
+}
+/* Reference-inspired discovery tools, scoped to the model workspace. */
+.model-toolbar .model-tools-toggle{display:none}
+.model-refine{display:flex;align-items:end;gap:10px;padding:8px 10px;background:var(--muted2);border:1px solid var(--line);border-radius:8px;margin-bottom:10px;flex-shrink:0}
+.model-refine>label{display:flex;gap:6px;align-items:center;min-width:0;font-size:11px;color:var(--secondary)}.model-refine select{max-width:220px;min-width:0;font-size:11px;padding:5px 8px;min-height:32px;background:var(--bg);border-radius:6px;border:1px solid var(--line)}.model-refine .button{margin-left:auto;min-height:32px;padding:4px 8px;font-size:11px}
+.model-flags{display:flex;flex-wrap:wrap;align-items:center;gap:4px}.model-flags>span,.model-series{display:inline-block;border:1px solid var(--line);padding:2px 5px;border-radius:4px;font-size:10px;line-height:1.35;background:var(--muted2);width:fit-content}
+.model-flags>.model-rate.known{color:var(--fg);font-family:monospace;font-weight:600;background:var(--bg)}.model-metadata{gap:6px}.effort-default{color:var(--secondary)}.effort-forced{color:var(--warn);border-bottom:1px dotted currentColor}.models-table .model-name strong{overflow-wrap:anywhere}
+.models-table .model-footer{gap:8px;flex-wrap:wrap}.model-footer .model-basis{margin-left:auto}.model-footer-reset{min-height:25px!important;padding:2px 5px!important;font-size:10px!important}
+@media(max-width:900px) and (min-width:641px){.model-refine{gap:6px}.model-refine>label{flex:1;flex-direction:column;align-items:stretch;font-size:10px}.model-refine select{width:100%}}
+@media(max-width:640px),(max-height:500px) and (pointer:coarse){
+ .model-toolbar .model-tools-toggle{display:inline-flex;min-height:40px;font-size:10px;padding:5px 8px;position:relative}.model-toolbar .filters{gap:5px}.model-toolbar .filters .search{min-width:0;flex:1}.model-toolbar .filters select{flex:0 1 72px;max-width:28%;font-size:10px}.model-toolbar .filters input{font-size:11px}
+ .model-refine{display:none}.model-refine.expanded{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px}.model-refine>label{flex-direction:column;align-items:stretch;font-size:10px;gap:3px}.model-refine select{width:100%;max-width:none;min-height:38px}.model-refine .button{margin:0;min-height:38px}
+ .models-table .model-name>span:last-child{display:flex;flex-direction:column;gap:3px}.models-table .model-name strong{font-size:12px}.models-table .model-limits{order:1;margin:0;font-size:10px}.models-table .model-mobile-meta{order:2;margin-top:2px}.model-mobile-meta .model-series{margin-top:5px}.models-table .model-metadata{gap:4px}.model-footer .model-basis{font-size:9px}.model-footer .model-footer-reset{font-size:9px!important}
+}
+.models-table th{white-space:normal;overflow-wrap:anywhere;line-height:1.3}
+.models-table .model-name small.mono,.models-table .model-series{white-space:normal;overflow-wrap:anywhere;max-width:100%}
+@media(min-width:641px){.models-table table{table-layout:fixed}.models-table th:first-child{width:25%}.models-table th:nth-child(2),.models-table th:nth-child(3){width:11%}.models-table th:nth-child(4){width:23%}.models-table th:nth-child(5){width:11%}.models-table th:nth-child(6){width:9%}.models-table th:last-child{width:10%}.models-table .button{white-space:normal;gap:3px;padding-inline:3px}.models-table td{overflow-wrap:anywhere}.models-table td .badge{font-size:9px;padding-inline:4px}}
+.app-shell[data-tab="models"] main>.notice:not(.warn){padding:8px 10px;margin:0 0 8px;min-height:42px}

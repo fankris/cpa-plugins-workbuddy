@@ -18,14 +18,48 @@ export function redact(value:unknown):unknown {
  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,/token|secret|password|authorization|cookie|api[_-]?key|private[_-]?key|raw|storage_json/i.test(k)?'[redacted]':redact(v)]));
  return value;
 }
+// Select only this plugin's config transport by successful READ. Never retry a write.
+const configRoute='/config/plugins/configs/workbuddy';
+let configTransport:{identity:string,url:string}|null=null;
+let configProbe:{identity:string,job:Promise<any>}|null=null;
+const record=(x:any)=>!!x&&typeof x==='object'&&!Array.isArray(x);
+async function readPluginConfig(){
+ const identity=getKey();
+ if(configTransport&&configTransport.identity===identity)return send(configTransport.url,'GET');
+ if(configProbe&&configProbe.identity===identity)return configProbe.job;
+ const job=(async()=>{
+  const primary=endpoints.native+configRoute;
+  const legacy=endpoints.plugin+'/config'; // same-origin, prefix-preserving native v0 plugin route
+  let data:any,url=primary;
+  try{data=await send(primary,'GET');if(!record(data))throw new APIError(200,'invalidResponse')}
+  catch(e){
+   if(!(e instanceof APIError)||!(e.code===404||e.code===405||(e.code>=200&&e.code<300&&e.message==='invalidResponse')))throw e;
+   if(getKey()!==identity)throw new APIError(409,'connectionChanged');
+   url=legacy;data=await send(legacy,'GET');
+  }
+  if(!record(data))throw new APIError(200,'invalidResponse');
+  if(getKey()!==identity)throw new APIError(409,'connectionChanged');
+  configTransport={identity,url};return data;
+ })();
+ configProbe={identity,job};try{return await job}finally{if(configProbe?.job===job)configProbe=null}
+}
 export async function request<T=any>(route:string,method='GET',body?:unknown,native=false):Promise<T>{
+ if(native&&route===configRoute){
+  if(method==='GET')return readPluginConfig();
+  const identity=getKey();if(configTransport?.identity!==identity)await readPluginConfig();
+  if(getKey()!==identity||configTransport?.identity!==identity)throw new APIError(409,'connectionChanged');
+  return send(configTransport!.url,method,body);
+ }
+ return send((native?endpoints.native:endpoints.plugin)+route,method,body);
+}
+async function send<T=any>(url:string,method='GET',body?:unknown):Promise<T>{
  const key=getKey(); if(!key)throw new APIError(401,'authRequired');
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
  try{
-  const response=await fetch((native?endpoints.native:endpoints.plugin)+route,{method,headers:{Authorization:'Bearer '+key,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal,credentials:'same-origin',cache:'no-store',redirect:'error'});
+  const response=await fetch(url,{method,headers:{Authorization:'Bearer '+key,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal,credentials:'same-origin',cache:'no-store',redirect:'error'});
   if(response.status===401){clearManagementKey(key);throw new APIError(401,'authRequired')}
-  const raw=await response.text();let data:any={};try{data=raw?JSON.parse(raw):{}}catch{throw new APIError(response.status,method==='GET'?'invalidResponse':'outcomeUnknown',method!=='GET')}
-  const terminalTask=method==='GET'&&route.startsWith('/tasks/status?')&&typeof data.run_id==='string'&&['failed','canceled','succeeded','running'].includes(data.status);
+  const raw=await response.text();let data:any={};try{if(!raw.trim()&&method==='GET')throw Error('empty response');data=raw?JSON.parse(raw):{};if(!record(data))throw Error('invalid JSON shape')}catch{throw new APIError(response.status,method==='GET'?'invalidResponse':'outcomeUnknown',method!=='GET')}
+  const terminalTask=method==='GET'&&url.startsWith(endpoints.plugin+'/tasks/status?')&&typeof data.run_id==='string'&&['failed','canceled','succeeded','running'].includes(data.status);
   if(!terminalTask&&(!response.ok||data.error||data.success===false||data.ok===false))throw new APIError(response.status,typeof data.error==='string'?String(redact(data.error)):data.error?.message?String(redact(data.error.message)):'requestFailed');
   return data;
  }catch(error){if(error instanceof APIError)throw error;throw new APIError(0,method==='GET'?'networkError':'outcomeUnknown',method!=='GET')}
