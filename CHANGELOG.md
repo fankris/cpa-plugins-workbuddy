@@ -1,3 +1,17 @@
+# v8.0.15-2.0.0-rebuild.19
+
+- Unified model hub across one observational account per channel and explicit custom definitions.
+- Exact ID aggregation, provenance and channel-specific metadata; no routing writes from observation.
+- Responsive four-language UI, new hub tests, 24 actual screenshot offline delivery. See docs/ITERATION-19.md.
+
+# v8.0.15-2.0.0-rebuild.18 — 2026-10-06
+
+- Remove Results workspace, history table/filter/export and duplicate nav connection badge.
+- Move safe connection information to Dashboard; reuse account reads, preserve accurate failure/unknown states.
+- Five-item navigation; migrate old results links/host snapshots, delete retired transient history keys.
+- Preserve latest per-action feedback, redacted details, native logs and business behavior.
+- Go567/1optionalSKIP, Node102, browser195+HTTP, ABI11; fixture backend only.
+
 # v8.0.15-2.0.0-rebuild.17 — 2026-10-06
 
 - Add account-scoped, concurrent Tencent enterprise + v3 directory through CPA host HTTP.

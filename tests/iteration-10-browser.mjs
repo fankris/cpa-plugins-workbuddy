@@ -17,7 +17,7 @@ try{
    const controls=await view.locator('.page-controls button').all();
    for(const control of controls){if(!await control.isVisible())continue;const b=await control.boundingBox();assert.ok(b.x>=0&&b.x+b.width<=width+1,'toolbar overflow '+locale);}
    await view.locator(selector).click();await view.locator('dialog textarea').fill('unsaved fixture');await view.locator('dialog .modal-head>button').click();
-   for(const index of [1,2]){await view.locator('.section-nav [data-section="'+['accounts','models','tasks','results'][index]+'"]').click();assert.equal(await view.locator('.more-actions,#page-actions').count(),0,'empty actions menu on models/tasks');}
+   for(const index of [1,2]){await view.locator('.section-nav [data-section="'+['accounts','models','tasks','dashboard'][index]+'"]').click();assert.equal(await view.locator('.more-actions,#page-actions').count(),0,'empty actions menu on models/tasks');}
    await view.locator('.section-nav [data-section="accounts"]').click();
   }
   checks.push(`${host} ${width}: four locales, no duplicated settings/login, import opens directly, no empty menus`);

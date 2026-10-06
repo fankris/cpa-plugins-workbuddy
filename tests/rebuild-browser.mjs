@@ -26,7 +26,7 @@ try{
  const traffic=(await (await page.request.get(base+'/__test/state')).json()).requests;
  assert.ok(traffic.some(x=>x.path==='/v8/management/credentials/refresh'&&x.method==='POST'));assert.ok(!traffic.some(x=>x.path.endsWith('/keepalive')));checks.push('token refresh uses native CPA endpoint');
  await page.locator('.section-nav').getByRole('button',{name:'模型诊断',exact:true}).click();await page.locator('tbody tr').first().waitFor();
- await page.locator('tbody tr').first().getByRole('button',{name:'停用模型'}).click();await page.locator('dialog').getByRole('button',{name:'确认操作'}).click();await page.waitForFunction(()=>document.querySelector('tbody tr .badge')?.textContent?.includes('已停用'));
+ await page.locator('.models-table tbody tr button').first().click();await page.locator('.hub-config-control button:enabled').click();await page.locator('dialog').getByRole('button',{name:'确认操作'}).click();await page.locator('.operation-strip .badge').filter({hasText:'已保存'}).waitFor();
  const state=await (await page.request.get(base+'/__test/state')).json();assert.equal(state.config.future_opaque.preserve,true);checks.push('model toggle preserves unknown plugin settings');
  await page.screenshot({path:'validation/models-desktop.png',fullPage:true});
  await page.locator('.section-nav').getByRole('button',{name:'任务与活动',exact:true}).click();await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-001');await page.locator('.task-card').first().waitFor();assert.equal(await page.locator('.task-card').count(),3);
@@ -35,8 +35,8 @@ try{
  await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-003');await page.getByText('当前区域不支持此任务接口',{exact:true}).waitFor();assert.equal(await page.locator('.task-card').count(),0);checks.push('region support boundary');
  await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-001');await page.locator('.task-card').first().waitFor();await page.screenshot({path:'validation/tasks-desktop.png',fullPage:true});
  await page.getByRole('button',{name:'接受全部可接任务',exact:true}).click();await page.locator('dialog').getByRole('button',{name:'确认操作',exact:true}).click();await page.locator('.run-status').waitFor();await page.waitForFunction(()=>document.querySelector('.run-status .badge')?.textContent?.includes('成功'));checks.push('accept-only run polling reaches confirmed result');
- await page.locator('.section-nav').getByRole('button',{name:/诊断与操作结果/}).click();await page.locator('tbody tr').first().waitFor();assert.ok(!(await page.locator('body').innerText()).includes('fixture-secret-must-not-be-logged'));checks.push('credential response not retained in result UI');
- await page.screenshot({path:'validation/results-desktop.png',fullPage:true});
+ await page.locator('.operation-strip button').click();await page.locator('dialog').waitFor();assert.ok(!(await page.locator('body').innerText()).includes('fixture-secret-must-not-be-logged'));checks.push('credential response not retained in inline feedback');await page.locator('dialog .modal-head>button').click();await page.locator('[data-section=dashboard]').click();await page.locator('.connection-panel').waitFor();
+ await page.screenshot({path:'validation/dashboard-standalone.png',fullPage:true});
  await page.locator('.section-nav').getByRole('button',{name:'账号与套餐',exact:true}).click();await page.getByRole('textbox',{name:'搜索名称、UID 或账号标识…'}).fill('');await page.screenshot({path:'validation/accounts-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'validation/accounts-mobile.png',fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));checks.push('390px viewport has no page overflow');
  await page.getByRole('button',{name:'切换明暗主题'}).click();await page.screenshot({path:'validation/accounts-dark-mobile.png',fullPage:true});

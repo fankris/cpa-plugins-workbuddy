@@ -20,10 +20,10 @@ try{
  await ctx.request.post(base+'/__test/reset',{data:{}});await page.goto(base);await page.locator('tbody tr').first().waitFor();
  await page.locator('tbody tr').filter({hasText:'Alex · Workspace'}).getByText('未知',{exact:true}).waitFor();checks.push('missing CPA runtime stays unknown in account table');
  assert.ok(await page.locator('tbody tr').getByText('需要关注',{exact:true}).count()>0);checks.push('CPA error does not render available');
- await page.locator('.section-nav').getByRole('button',{name:'模型诊断',exact:true}).click();await page.locator('tbody tr').first().getByRole('button',{name:'停用模型'}).click();await page.locator('dialog').getByRole('button',{name:'确认操作'}).click();
+ await page.locator('.section-nav').getByRole('button',{name:'模型诊断',exact:true}).click();await page.locator('.models-table tbody tr button').first().click();await page.locator('.hub-config-control button:enabled').click();await page.locator('dialog').getByRole('button',{name:'确认操作'}).click();
  await page.locator('.operation-strip .badge').filter({hasText:'结果未确认'}).waitFor();
- await page.locator('tbody tr').first().getByText('已启用',{exact:true}).waitFor();assert.equal(writes,1);checks.push('successful HTTP PUT with stale readback does not claim saved or change model badge');
- await page.locator('.section-nav').getByRole('button',{name:/诊断与操作结果/}).click();await page.locator('tbody tr').first().getByText('结果未确认',{exact:true}).waitFor();checks.push('unconfirmed outcome remains in local result history, no mutation replay');
+ await page.locator('.models-table tbody tr button').first().click();await page.locator('.hub-config-control').getByText('已启用',{exact:true}).waitFor();await page.locator('.hub-dialog .modal-head button').click();assert.equal(writes,1);checks.push('successful HTTP PUT with stale readback does not claim saved or change model badge');
+ await page.locator('.operation-strip button').click();await page.locator('dialog .badge').filter({hasText:'结果未确认'}).waitFor();assert.equal(writes,1);checks.push('unconfirmed feedback remains inspectable inline without result page or mutation replay');
  assert.deepEqual(errors,[]);
  fs.mkdirSync('validation/iteration-5',{recursive:true});fs.writeFileSync('validation/iteration-5/browser-cpa-first.json',JSON.stringify({result:'PASS',checks,errors,realCredentialsUsed:false,officialHost:false},null,2));console.log(checks);
 }finally{await browser.close()}

@@ -130,6 +130,14 @@ req={'Method':'POST','Path':'/v0/management/plugins/workbuddy/models/directory/r
 rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
 body=json.loads(base64.b64decode(result['result']['Body']));assert body['status']=='ok' and len(body['sources'])==2 and body['models'][0]['routing_status']=='directoryOnly',body
 checks.append('compiled account directory fetches both sources with callback scope and never claims routing registration')
+scope='probe-hub'
+req={'Method':'POST','Path':'/v0/management/plugins/workbuddy/models/hub/refresh','Body':encode({'sources':{}}),'host_callback_id':scope}
+rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
+body=json.loads(base64.b64decode(result['result']['Body']));assert body['status']=='ok' and len(body['sources'])==3 and body['models'],body
+assert all(v['origin']=='dynamic' for m in body['models'] for v in m['variants']),body
+assert len({m['id'] for m in body['models']})==len(body['models'])
+checks.append('compiled model hub selects one account per channel, propagates callback scope and returns unique IDs with provenance')
+
 mode='billing';scope=''
 # Background billing operations are owned by the plugin lifecycle, without an executor callback.
 req={'Method':'GET','Path':'/v0/management/plugins/workbuddy/accounts'}

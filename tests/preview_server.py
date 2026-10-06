@@ -42,6 +42,35 @@ def directory_fixture(idx):
  {'id':'fixture-video','name':'视频条目 · 模拟','tags':['text-to-video'],'sources':['v3_config'],'family':'其他','family_derived':True},
  {'id':'fixture-disabled','name':'上游禁用 · 模拟','disabled':True,'disabled_reason':'模拟目录不可用条目','sources':['enterprise_models'],'family':'其他','family_derived':True}]
  return {'auth_index':idx,'name':idx,'status':'ok','service':'global' if idx=='demo-003' else 'cn','models':rows,'count':len(rows),'sources':[{'source':'enterprise_models','path':'/console/enterprises/personal/models','status':'ok','count':11},{'source':'v3_config','path':'/v3/config','status':'ok','count':12}],'cached':False,'fetched_at':now()}
+def hub_fixture(selection=None):
+ selection=selection or {};sources=[];variants=[]
+ for ch in ['cn','global','intl']:
+  choices=[a for a in accounts if (a['region']=='cn' if ch=='cn' else a['auth_index'] in (['demo-003','demo-010'] if ch=='global' else ['demo-005','demo-008']))]
+  options=[{'auth_index':a['auth_index'],'name':a['nickname'],'selected':a.get('selected',False),'available':not a['disabled']} for a in choices]
+  wanted=selection.get(ch,'');chosen=next((a for a in choices if a['auth_index']==wanted and not a['disabled']),None) if wanted else next((a for a in choices if a.get('selected') and not a['disabled']),None) or next((a for a in choices if not a['disabled']),None)
+  status='ok' if chosen else 'invalid_account' if wanted else 'no_account';rows=[]
+  if chosen and ch=='intl':status='unsupported'
+  elif chosen:
+   rows=directory_fixture(chosen['auth_index'])['models']
+   if ch=='global':
+    rows=[m for m in rows if m['id']!='hunyuan-pro'];rows.append({'id':'fixture-international','name':'国际独有 · 模拟','context_length':1000000,'max_completion_tokens':128000,'efforts':['medium'],'credits':'x0.08','sources':['v3_config']})
+    for m in rows:
+     if m['id']=='deepseek-v4.1-flash':m['context_length']=1000000;m['credits']='x0.04 credits'
+   if chosen['auth_index']=='demo-002':rows=rows[:3]+[{'id':'fixture-second-account','name':'第二账号目录 · 模拟'}]
+   for m in rows:variants.append({'origin':'dynamic','channel':ch,'auth_index':chosen['auth_index'],'model':m})
+  sources.append({'channel':ch,'accounts':options,'auth_index':chosen['auth_index'] if chosen else '', 'name':chosen['nickname'] if chosen else '', 'basis':'manual' if wanted and chosen else 'invalid_account' if wanted else 'selected' if chosen and chosen.get('selected') else 'automatic' if chosen else 'no_account','status':status,'count':len(rows),'cached':False,'fetched_at':now() if rows else '', 'endpoints':[{'source':'enterprise_models','path':'/console/enterprises/personal/models','status':'ok','count':len(rows)},{'source':'v3_config','path':'/v3/config','status':'ok','count':len(rows)}] if rows else []})
+ for ch in ['cn','global','intl']:
+  variants.append({'origin':'custom','channel':ch,'config_key':'models','model':{'id':'fixture-custom','name':'自定义模型 · 模拟','context_length':262144,'max_completion_tokens':32000,'metadata_source':'custom'}})
+  if ch!='cn':variants.append({'origin':'custom','channel':ch,'config_key':'models','model':{'id':'deepseek-v4.1-flash','name':'自定义配置名 · 模拟','context_length':500000,'max_completion_tokens':64000,'metadata_source':'custom'}})
+ variants.append({'origin':'custom','channel':'cn','config_key':'models_cn','model':{'id':'fixture-pin-cn','name':'固定列表条目 · 模拟','metadata_source':'pin'}})
+ rows={}
+ for v in variants:
+  m=v['model'];mid=m['id'];r=rows.setdefault(mid,{'id':mid,'name':m.get('name',mid),'origins':[],'dynamic_channels':[],'custom_channels':[],'disabled':mid not in config.get('models_enabled',[]) or mid in config.get('models_disabled',[]),'variants':[]})
+  if v['origin'] not in r['origins']:r['origins'].append(v['origin'])
+  key=v['origin']+'_channels'
+  if v['channel'] not in r[key]:r[key].append(v['channel'])
+  r['variants'].append(v)
+ return {'status':'partial' if any(s['status'] not in ['ok','no_account'] for s in sources) else 'ok','models':[rows[k] for k in sorted(rows)],'sources':sources,'account_errors':[],'count':len(rows)}
 class Handler(BaseHTTPRequestHandler):
  def log_message(self,*args):pass
  def send(self,data,status=200,content='application/json; charset=utf-8'):
@@ -76,6 +105,7 @@ class Handler(BaseHTTPRequestHandler):
   if p==BASE+'/settings':return self.send({k:config.get(k,v) for k,v in {'checkin_auto':True,'lifecycle_auto':True,'token_keepalive':False,'travel_auto':False,'scheduler_mode':'host'}.items()})
   if p==BASE+'/accounts':return self.send({'accounts':accounts,'server_time':now(),'server_time_iso':now()})
   if p in ('/v8/management/config/plugins/configs/workbuddy',BASE+'/config'):return self.send(config)
+  if p==BASE+'/models/hub':return self.send(hub_fixture({k:v[0] for k,v in q.items()}))
   if p==BASE+'/models/directory':return self.send(directory_fixture(q.get('auth_index',[''])[0]))
   if p==BASE+'/models/catalog':return self.send({'models':models})
   if p==BASE+'/models':
@@ -114,6 +144,7 @@ class Handler(BaseHTTPRequestHandler):
     if not run or run['run_id']!=body.get('run_id') or run['auth_index']!=body.get('auth_index'):return self.send({'error':'unknown run'},404)
     run['cancel_requested']=True;return self.send(run)
    if p==BASE+'/refresh':return self.send({'accounts':accounts})
+   if p==BASE+'/models/hub/refresh':return self.send(hub_fixture(body.get('sources',{})))
    if p==BASE+'/models/directory/refresh':return self.send(directory_fixture(body.get('auth_index')))
    if p==BASE+'/models/refresh':return self.send({'auth_index':body.get('auth_index'),'models':models,'source':{'source':'local demo fixture'}})
    if p in [BASE+'/tasks/accept',BASE+'/tasks/claim']:

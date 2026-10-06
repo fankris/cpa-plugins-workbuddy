@@ -24,3 +24,6 @@ export function useViewState<T>(name:string,initial:T|(()=>T)){
  useEffect(()=>{try{snapshot()[name]=JSON.stringify(value instanceof Set?[...value]:value)}catch{}},[name,value]);
  return [value,setValue] as const;
 }
+
+// Retired result-list filters/history must not remain in a host iframe snapshot.
+export function clearRetiredViewState(){try{const values=snapshot();for(const key of ['logs','resultSearch','resultFilter','modelTab','modelSearch','modelFilter','modelFamily','modelCapability','modelSort','modelToolsOpen','discoveryID'])delete values[key]}catch{}}

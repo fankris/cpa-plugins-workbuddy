@@ -1,5 +1,5 @@
 {
-  "build": "v8.0.15-2.0.0-rebuild.17",
+  "build": "v8.0.15-2.0.0-rebuild.19",
   "independent_unreleased_build": true,
   "date": "2026-10-06",
   "references": {
@@ -181,5 +181,15 @@
     "learned": "dual-source account catalog, v3 priority, complete metadata, conflicting image declarations, catalog-only headers",
     "difference": "read-only directory includes disabled/preset/non-chat entries; never auto-registers them in CPA; routing resolver unchanged",
     "production_changed": false
+  },
+  "iteration_18": {
+    "version": "v8.0.15-2.0.0-rebuild.18",
+    "change": "user-directed removal of results page; connection information moved to dashboard; five-item navigation and old-view migration",
+    "reference": "existing CPA-native implementation; no new external UI architecture",
+    "production_changed": false
+  },
+  "iteration19": {
+    "reference": "Manager 508f803 model page filtering/sorting and directory semantics; adapted to CPA model-first hub",
+    "routing_modified_by_observation": false
   }
 }

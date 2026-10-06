@@ -1,3 +1,13 @@
+# 当前验证：rebuild.18
+
+见 [结构化报告](VALIDATION-18.json)、[本轮实现](ITERATION-18.md)。
+
+Go567 PASS / 1 optional SKIP；vet、TypeScript、构建通过；Node102（退役11项结果列表分组测试，新增9项导航/移除契约）；浏览器195组+普通HTTP，其中94组原版CPAMC前端；发布ABI11。截图37张，20张原版官方前端。
+
+结果页退役，旧结果搜索/导出测试改为业务页反馈、仪表盘及五项导航验收。全程模拟后端，真实账号与用户CPAMP未验收，生产未动。
+
+## 历史验证（不代表当前页面功能）
+
 # 当前验证：rebuild.17
 
 见 [结构化报告](VALIDATION-17.json) 与 [实现及边界](ITERATION-17.md)。

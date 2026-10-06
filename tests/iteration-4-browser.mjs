@@ -1,14 +1,3 @@
-// Updated directory semantics: no static fallback is presented as upstream data.
-import {chromium} from '../frontend/node_modules/playwright/index.mjs';
-import assert from 'node:assert/strict';import fs from 'node:fs';
-const base='http://127.0.0.1:8080',checks=[],errors=[];const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
-try{const ctx=await browser.newContext({locale:'zh-CN'}),page=await ctx.newPage();page.on('pageerror',e=>errors.push(e.message));let status='partial',posts=0;
- await ctx.route('**/models/directory?*',r=>r.fulfill({json:{auth_index:'demo-001',status,models:status==='partial'?[{id:'fixture-model',name:'Fixture model',disabled:false}]:[],sources:[]}}));
- await ctx.route('**/models/directory/refresh',r=>{posts++;return r.fulfill({json:{auth_index:'demo-001',status:'failed',models:[],sources:[]}})});
- await ctx.request.post(base+'/__test/reset',{data:{}});await page.goto(base);await page.locator('tbody tr').first().waitFor();await page.locator('[data-section=models]').click();await page.getByRole('button',{name:'账号模型目录',exact:true}).click();await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-001');
- await page.locator('.directory-sources summary').filter({hasText:'部分来源失败'}).waitFor();await page.getByText('Fixture model',{exact:true}).waitFor();checks.push('partial directory stays visible, explicitly labelled');
- await page.getByRole('button',{name:'重新拉取',exact:true}).click();await page.locator('dialog .primary').click();await page.locator('.models-table .empty').getByText('目录获取失败，请重新拉取',{exact:true}).waitFor();assert.equal(posts,1);assert.equal(await page.locator('.models-table tbody tr').count(),0);await page.locator('.operation-strip .badge').filter({hasText:'失败'}).waitFor();checks.push('failed forced refresh has no old rows, no false success and no replay');
- status='unsupported';await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-002');await page.locator('.models-table .empty').getByText('此服务的动态目录尚未验证',{exact:true}).waitFor();assert.equal(await page.locator('.models-table tbody tr').count(),0);checks.push('unsupported service is distinct from empty successful directory');
- await ctx.route('**/models/directory?*',r=>r.fulfill({json:{}}));await page.getByRole('combobox',{name:'选择账号'}).selectOption('demo-001');await page.locator('.notice.error').waitFor();assert.equal(await page.locator('.models-table tbody tr').count(),0);assert.equal(await page.getByRole('button',{name:'重新拉取',exact:true}).isEnabled(),true);await page.getByRole('button',{name:'重新拉取',exact:true}).click();await page.locator('dialog .primary').click();await page.locator('.models-table .empty').getByText('目录获取失败，请重新拉取',{exact:true}).waitFor();assert.equal(posts,2);checks.push('malformed JSON object is not a successful directory; manual retry remains usable');
- assert.deepEqual(errors,[]);fs.writeFileSync('validation/iteration-4/browser-models.json',JSON.stringify({result:'PASS',checks,errors,realCredentialsUsed:false},null,2));console.log(checks);
-}finally{await browser.close()}
+// Legacy split-model UI retired in iteration19; executable compatibility entry point.
+// Current channel/source/filter/metadata/native-config assertions live here:
+import './iteration-19-browser.mjs';
