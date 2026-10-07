@@ -223,24 +223,29 @@ func TestDirectoryPartialFailureNotCachedAndForcedFailureNoStale(t *testing.T) {
 		t.Fatal("partial cached")
 	}
 }
-func TestDirectoryCodeBuddyIntlNoCrossDomainAndMissingToken(t *testing.T) {
+func TestDirectoryCBForeignUsesWBAndMissingTokenMakesNoRequest(t *testing.T) {
 	sa := directoryTest(t)
-	hostHTTPTestOverride = func(*http.Request) (*hostHTTPResponse, error) {
-		t.Error("unexpected request")
-		return nil, fmt.Errorf("no")
+	var calls atomic.Int32
+	hostHTTPTestOverride = func(r *http.Request) (*hostHTTPResponse, error) {
+		calls.Add(1)
+		if r.URL.Host != "www.workbuddy.ai" {
+			t.Error("not WB foreign gateway", r.URL)
+		}
+		return directoryBody(`[{"id":"cb-via-wb"}]`), nil
 	}
 	sa.Auth.Region = regionIntl
 	sa.Auth.Domain = "www.codebuddy.ai"
 	r := resolveAccountDirectory(context.Background(), sa, true)
-	if r.Status != "unsupported" {
-		t.Fatal(r)
+	if r.Status != "ok" || len(r.Models) != 1 || calls.Load() != 2 {
+		t.Fatal(r, calls.Load())
 	}
-	sa.Auth.Region = regionCN
-	sa.Auth.Domain = "copilot.tencent.com"
+	if sa.Auth.Domain != "www.codebuddy.ai" {
+		t.Fatal("credential mutated")
+	}
 	sa.Auth.AccessToken = ""
 	r = resolveAccountDirectory(context.Background(), sa, true)
-	if r.Status != "failed" {
-		t.Fatal(r)
+	if r.Status != "failed" || calls.Load() != 2 {
+		t.Fatal(r, calls.Load())
 	}
 }
 func TestDirectoryCoalescesSameAccountReads(t *testing.T) {

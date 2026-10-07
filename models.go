@@ -499,30 +499,11 @@ func storeDynamicModels(key string, models []pluginapi.ModelInfo, details ...map
 }
 
 // realmForStorage classifies an auth storage blob into the public CN/Intl
-// grouping. Model discovery uses serviceRealmForStorage to retain gateway
-// identity. Inputs may be nested OAuth files, flat CPA imports, or legacy files
+// grouping. Model discovery uses serviceRealmForStorage to choose the WB
+// default entrypoint for either login brand. Inputs may be nested OAuth files, flat CPA imports, or legacy files
 // whose JWT issuer is the only remaining realm signal.
 func realmForStorage(raw []byte, accessToken string) string {
-	var probe struct {
-		Auth struct {
-			Domain string `json:"domain"`
-			Region string `json:"region"`
-		} `json:"auth"`
-		Domain string `json:"domain"`
-		Region string `json:"region"`
-	}
-	if err := json.Unmarshal(raw, &probe); err == nil {
-		if service := realmFromRegionDomain(probe.Auth.Region, probe.Auth.Domain); service != "" {
-			return displayRegionForService(service)
-		}
-		if service := realmFromRegionDomain(probe.Region, probe.Domain); service != "" {
-			return displayRegionForService(service)
-		}
-	}
-	if isGlobalToken(accessToken) {
-		return regionIntl
-	}
-	return regionCN
+	return displayRegionForService(serviceRealmForStorage(raw, accessToken))
 }
 
 func serviceRealmForStorage(raw []byte, accessToken string) string {
@@ -538,10 +519,10 @@ func serviceRealmForStorage(raw []byte, accessToken string) string {
 	}
 	if err := json.Unmarshal(raw, &probe); err == nil {
 		if service := realmFromRegionDomain(firstNonEmptyTrimmed(probe.Auth.Region, probe.Auth.Realm), probe.Auth.Domain); service != "" {
-			return service
+			return wbServiceForRegion(service)
 		}
 		if service := realmFromRegionDomain(firstNonEmptyTrimmed(probe.Region, probe.Realm), probe.Domain); service != "" {
-			return service
+			return wbServiceForRegion(service)
 		}
 	}
 	if isGlobalToken(accessToken) {
@@ -616,27 +597,22 @@ func isGlobalToken(accessToken string) bool {
 	if json.Unmarshal(raw, &claims) != nil {
 		return false
 	}
-	return strings.Contains(strings.ToLower(claims.ISS), "workbuddy.ai")
+	return isGlobalDomain(claims.ISS) || isIntlDomain(claims.ISS)
 }
 
 // modelsEndpointFor returns the service-specific model URL and Origin/Referer.
-// The internal "global" key identifies legacy workbuddy.ai credentials.
+// Both international legacy keys resolve to the default WB entrypoint.
 func modelsEndpointFor(realm string) (modelsURL, origin string) {
 	switch strings.ToLower(strings.TrimSpace(realm)) {
-	case regionGlobal:
+	case regionGlobal, regionIntl:
 		return upstreamBaseGlobal + "/console/enterprises/personal/models", originRefererGlobal
-	case regionIntl:
-		// CodeBuddy Intl discovery remains disabled by policy; WorkBuddy Intl
-		// credentials retain discovery through the legacy Global service key.
-		return upstreamBaseIntl + "/console/enterprises/personal/models", originRefererIntl
 	default:
 		return endpointModels, originReferer
 	}
 }
 
 // callModelsAPI GETs the console model directory for CN and legacy
-// WorkBuddy-service credentials. CodeBuddy Intl model-for-auth resolution uses
-// the static Intl catalog instead. The request carries a per-request 15s budget
+// international credentials through the WB entrypoint, irrespective of login brand. The request carries a per-request 15s budget
 // through the CPA host HTTP bridge.
 //
 // v0.9.32: this is a thin retry wrapper around callModelsAPIOnce. The gateway
@@ -720,6 +696,7 @@ func callModelsAPIOnceContext(parent context.Context, accessToken string, realm 
 		}
 	}
 
+	r = wbServiceForRegion(r)
 	serviceRealm := r
 	modelsURL, origin := modelsEndpointFor(serviceRealm)
 

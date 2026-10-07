@@ -136,8 +136,8 @@ func handleClaimTrial(req pluginapi.ManagementRequest) map[string]any {
 		if err != nil {
 			return map[string]any{"auth_index": authIndex, "error": err.Error()}
 		}
-		if !isWorkBuddyService(sa) {
-			return map[string]any{"auth_index": authIndex, "error": "专家加油包仅适用于国际版账号"}
+		if err := requireBusiness(sa, "trial"); err != nil {
+			return businessErrorResult(authIndex, err)
 		}
 		res, err := performTrialCall(sa)
 		out := map[string]any{"auth_index": authIndex, "nickname": sa.Account.Nickname}
@@ -157,9 +157,7 @@ func handleClaimTrial(req pluginapi.ManagementRequest) map[string]any {
 				accountCache.Store(f.ID, &fresh)
 			}
 		}
-		if lifecycleEnabled() {
-			_, _ = reconcileOneAccount(authIndex, f.ID, true)
-		}
+		// Trial is not a maintenance operation. Never change disabled state here.
 		return out
 	}
 	return map[string]any{"error": "account not found"}
@@ -236,6 +234,8 @@ func refreshCreditsRow(f pluginapi.HostAuthFileEntry) map[string]any {
 		cr.FetchedAt = now.UTC().Format(time.RFC3339)
 	}
 	acct["credits"] = cr
+	acct["capabilities"] = accountCapabilities(sa, cr)
+	acct["trial_eligibility"] = accountCapabilities(sa, cr)["trial"].Eligibility
 	acct["plan"] = fetchPaymentType(sa)
 	if isWorkBuddyService(sa) {
 		acct["trial_claimed"] = hasTrialPack(cr)

@@ -355,11 +355,6 @@ func resolveAccountDirectory(parent context.Context, sa *storedAuth, force bool)
 	token, _ := extractAccessToken(raw)
 	service := serviceRealmForStorage(raw, token)
 	result.Service = service
-	if service != regionCN && service != regionGlobal {
-		result.Status = "unsupported"
-		result.Warning = "CodeBuddy International directory is not verified; no cross-service probing"
-		return result
-	}
 	if token == "" {
 		result.Warning = "credential has no access token"
 		return result

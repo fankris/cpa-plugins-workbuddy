@@ -82,9 +82,9 @@ const (
 	// Global chat/auth gateway (iss = workbuddy.ai realm). APISIX on
 	// copilot.tencent.com rejects Global JWTs with 401; must use workbuddy.ai.
 	upstreamBaseGlobal = "https://www.workbuddy.ai"
-	// Intl chat/auth gateway (merged codebuddy-intl plugin, v0.11.0):
-	// the codebuddy.ai realm issues its own JWTs — separate from both
-	// copilot.tencent.com and workbuddy.ai.
+	// Legacy CB login entrypoint. WB/CB share the foreign account channel;
+	// existing-account business requests default to the WB gateway.
+	// Retained for the unchanged native login integration.
 	upstreamBaseIntl    = "https://www.codebuddy.ai"
 	clientUA            = "CLI/2.108.1 CodeBuddy/2.108.1"
 	clientUAWorkBuddy   = "CLI/2.108.1 WorkBuddy/2.108.1"
@@ -423,7 +423,7 @@ type registrationCapability struct {
 }
 
 // version is injected at build time via -ldflags "-X main.version=...".
-var version = "v8.0.15-1.0.53"
+var version = "v8.0.15-1.0.54"
 
 func wbRegistration() registration {
 	return registration{

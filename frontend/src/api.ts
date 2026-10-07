@@ -60,7 +60,7 @@ async function send<T=any>(url:string,method='GET',body?:unknown):Promise<T>{
   if(response.status===401){clearManagementKey(key);throw new APIError(401,'authRequired')}
   const raw=await response.text();let data:any={};try{if(!raw.trim()&&method==='GET')throw Error('empty response');data=raw?JSON.parse(raw):{};if(!record(data))throw Error('invalid JSON shape')}catch{throw new APIError(response.status,method==='GET'?'invalidResponse':'outcomeUnknown',method!=='GET')}
   const terminalTask=method==='GET'&&url.startsWith(endpoints.plugin+'/tasks/status?')&&typeof data.run_id==='string'&&['failed','canceled','succeeded','running'].includes(data.status);
-  if(!terminalTask&&(!response.ok||data.error||data.success===false||data.ok===false))throw new APIError(response.status,typeof data.error==='string'?String(redact(data.error)):data.error?.message?String(redact(data.error.message)):'requestFailed');
+  if(!terminalTask&&(!response.ok||data.error||data.success===false&&!data.already_claimed||data.ok===false))throw new APIError(response.status,data.code==='unsupported_region'?'unsupported_region':typeof data.error==='string'?String(redact(data.error)):data.error?.message?String(redact(data.error.message)):'requestFailed');
   return data;
  }catch(error){if(error instanceof APIError)throw error;throw new APIError(0,method==='GET'?'networkError':'outcomeUnknown',method!=='GET')}
  finally{clearTimeout(timer)}

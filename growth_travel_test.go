@@ -152,24 +152,13 @@ func TestTravelDepartsWhenIdleWithLocationID(t *testing.T) {
 	}
 }
 
-// When the config endpoint has no destinations the plugin must still depart
-// using the documented fallback (location 1) rather than failing.
-func TestTravelDepartFallsBackToLocationOne(t *testing.T) {
+// Missing configuration is not permission to invent a destination.
+func TestTravelMissingConfigDoesNotDepart(t *testing.T) {
 	stub := &travelStub{state: "idle", configID: nil}
 	installTravelStub(t, stub)
-
 	out := runBuddyTravel(cnTravelAuth())
-	if out["ok"] != true || out["action"] != "depart" {
-		t.Fatalf("missing config must not block departure, got %+v", out)
-	}
-	var payload struct {
-		LocationID any `json:"location_id"`
-	}
-	if err := json.Unmarshal(stub.seen[growthTravelDepartPath], &payload); err != nil {
-		t.Fatalf("depart body is not JSON: %v", err)
-	}
-	if id, _ := payload.LocationID.(float64); id != 1 {
-		t.Fatalf("expected the location-1 fallback, got %v", payload.LocationID)
+	if out["ok"] != false || stub.posts[growthTravelDepartPath] != 0 {
+		t.Fatal(out, stub.posts)
 	}
 }
 

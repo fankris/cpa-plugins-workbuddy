@@ -1,6 +1,6 @@
 import {modelMultiplier} from './model-view';
 export type HubRow=Record<string,any>;
-export const hubChannels=['cn','global','intl'];
+export const hubChannels=['cn','intl'];
 export function isHubResponse(x:any):boolean{
  const object=(v:any)=>!!v&&typeof v==='object'&&!Array.isArray(v);
  const strings=(v:any)=>v===undefined||v===null||(Array.isArray(v)&&v.every(a=>typeof a==='string'));
@@ -28,3 +28,6 @@ export function hubIssue(s:HubRow):string{
  return s.status;
 }
 export function hubParameterDifference(variants:HubRow[]){return ['context_length','max_completion_tokens','credits','efforts','default_effort'].some(k=>commonValue(variants,k).varied)}
+
+// Migrate prior UI-only source choices; never write host configuration.
+export function hubSourceSelection(value:Record<string,string>){return {cn:value.cn||'',intl:value.intl||value.global||''}};

@@ -14,25 +14,27 @@ import (
 
 // wbAccount is one row of the dashboard.
 type wbAccount struct {
-	AuthIndex     string            `json:"auth_index"`
-	AuthID        string            `json:"auth_id,omitempty"`
-	Name          string            `json:"name"`
-	Label         string            `json:"label"`
-	Nickname      string            `json:"nickname"`
-	UID           string            `json:"uid"`
-	Service       string            `json:"service"`
-	DataError     string            `json:"data_error,omitempty"`
-	Region        string            `json:"region"` // "cn" | "intl"
-	TrialEligible bool              `json:"trial_eligible,omitempty"`
-	Plan          string            `json:"plan"`
-	Status        string            `json:"status"`
-	Disabled      bool              `json:"disabled"`
-	Exhausted     bool              `json:"exhausted"`
-	Selected      bool              `json:"selected"` // panel active routing card
-	Credits       *creditsSummary   `json:"credits,omitempty"`
-	Checkin       *checkinSummary   `json:"checkin,omitempty"`
-	TrialClaimed  bool              `json:"trial_claimed,omitempty"` // Global: expert trial already claimed
-	Models        *realmModelsState `json:"models,omitempty"`        // v0.9.9: where this realm's model list came from
+	AuthIndex        string                        `json:"auth_index"`
+	AuthID           string                        `json:"auth_id,omitempty"`
+	Name             string                        `json:"name"`
+	Label            string                        `json:"label"`
+	Nickname         string                        `json:"nickname"`
+	UID              string                        `json:"uid"`
+	Service          string                        `json:"service"`
+	DataError        string                        `json:"data_error,omitempty"`
+	Region           string                        `json:"region"` // "cn" | "intl"
+	Capabilities     map[string]businessCapability `json:"capabilities"`
+	TrialEligibility string                        `json:"trial_eligibility"`
+	TrialEligible    bool                          `json:"trial_eligible,omitempty"`
+	Plan             string                        `json:"plan"`
+	Status           string                        `json:"status"`
+	Disabled         bool                          `json:"disabled"`
+	Exhausted        bool                          `json:"exhausted"`
+	Selected         bool                          `json:"selected"` // panel active routing card
+	Credits          *creditsSummary               `json:"credits,omitempty"`
+	Checkin          *checkinSummary               `json:"checkin,omitempty"`
+	TrialClaimed     bool                          `json:"trial_claimed,omitempty"` // Global: expert trial already claimed
+	Models           *realmModelsState             `json:"models,omitempty"`        // v0.9.9: where this realm's model list came from
 	// DailyFree is today's per-model free-token usage. Deliberately separate
 	// from Credits: credits are PURCHASED (account-wide, package cycles) while
 	// this is the FREE tier (per model, resets daily). Merging them would put
@@ -184,6 +186,11 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 			sa, phys, err := hostAuthGetBundle(f.AuthIndex)
 			if err != nil {
 				acct.Error = "load auth: " + err.Error()
+				if !supportsBusiness(sa, "checkin") {
+					acct.Checkin = nil
+				}
+				acct.Capabilities = accountCapabilities(sa, acct.Credits)
+				acct.TrialEligibility = acct.Capabilities["trial"].Eligibility
 				out[i] = acct
 				return
 			}
@@ -198,7 +205,7 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 			acct.UID = sa.Account.UID
 			acct.Region = panelRegion(sa)
 			acct.Service = accountServiceRegion(sa)
-			acct.TrialEligible = isWorkBuddyService(sa)
+			acct.TrialEligible = false // deprecated: region alone cannot prove entitlement
 			acct.Models = realmModelStateFor(accountServiceRegion(sa))
 
 			// Local, in-memory read: no upstream call, so it is safe to attach
@@ -239,6 +246,11 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 					}
 				}
 			}
+			if !supportsBusiness(sa, "checkin") {
+				acct.Checkin = nil
+			}
+			acct.Capabilities = accountCapabilities(sa, acct.Credits)
+			acct.TrialEligibility = acct.Capabilities["trial"].Eligibility
 			out[i] = acct
 		}(i, f)
 	}

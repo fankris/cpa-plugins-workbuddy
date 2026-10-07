@@ -23,6 +23,8 @@ requests=[]
 run=None
 initial=copy.deepcopy((accounts,models,config,tasks))
 for account in accounts:
+ account['capabilities']={key:{'supported':(account['region']=='cn' if key in ['checkin','tasks','travel'] else account['region']=='intl' if key in ['trial','activation_status'] else True),'eligibility':'unknown'} for key in ['checkin','tasks','travel','trial','activation_status','credits','models','token_refresh']}
+ account['trial_eligibility']='unknown' if account['region']=='intl' else 'not_applicable'
  if account.get('credits'):
   cr=account['credits'];soon=account['auth_index'] in ('demo-001','demo-002');end=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(days=2 if soon else 20)).isoformat()
   for package in cr['packages']:package['cycle_end']=end
@@ -41,25 +43,24 @@ def directory_fixture(idx):
  {'id':'fixture-image','name':'图像条目 · 模拟','tags':['text-to-image'],'sources':['v3_config'],'family':'其他','family_derived':True},
  {'id':'fixture-video','name':'视频条目 · 模拟','tags':['text-to-video'],'sources':['v3_config'],'family':'其他','family_derived':True},
  {'id':'fixture-disabled','name':'上游禁用 · 模拟','disabled':True,'disabled_reason':'模拟目录不可用条目','sources':['enterprise_models'],'family':'其他','family_derived':True}]
- return {'auth_index':idx,'name':idx,'status':'ok','service':'global' if idx=='demo-003' else 'cn','models':rows,'count':len(rows),'sources':[{'source':'enterprise_models','path':'/console/enterprises/personal/models','status':'ok','count':11},{'source':'v3_config','path':'/v3/config','status':'ok','count':12}],'cached':False,'fetched_at':now()}
+ return {'auth_index':idx,'name':idx,'status':'ok','service':'global' if idx in ('demo-003','demo-005','demo-008','demo-010') else 'cn','models':rows,'count':len(rows),'sources':[{'source':'enterprise_models','path':'/console/enterprises/personal/models','status':'ok','count':11},{'source':'v3_config','path':'/v3/config','status':'ok','count':12}],'cached':False,'fetched_at':now()}
 def hub_fixture(selection=None):
  selection=selection or {};sources=[];variants=[]
- for ch in ['cn','global','intl']:
-  choices=[a for a in accounts if (a['region']=='cn' if ch=='cn' else a['auth_index'] in (['demo-003','demo-010'] if ch=='global' else ['demo-005','demo-008']))]
+ for ch in ['cn','intl']:
+  choices=[a for a in accounts if (a['region']=='cn' if ch=='cn' else a['region']=='intl')]
   options=[{'auth_index':a['auth_index'],'name':a['nickname'],'selected':a.get('selected',False),'available':not a['disabled']} for a in choices]
   wanted=selection.get(ch,'');chosen=next((a for a in choices if a['auth_index']==wanted and not a['disabled']),None) if wanted else next((a for a in choices if a.get('selected') and not a['disabled']),None) or next((a for a in choices if not a['disabled']),None)
   status='ok' if chosen else 'invalid_account' if wanted else 'no_account';rows=[]
-  if chosen and ch=='intl':status='unsupported'
-  elif chosen:
+  if chosen:
    rows=directory_fixture(chosen['auth_index'])['models']
-   if ch=='global':
+   if ch=='intl':
     rows=[m for m in rows if m['id']!='hunyuan-pro'];rows.append({'id':'fixture-international','name':'国际独有 · 模拟','context_length':1000000,'max_completion_tokens':128000,'efforts':['medium'],'credits':'x0.08','sources':['v3_config']})
     for m in rows:
      if m['id']=='deepseek-v4.1-flash':m['context_length']=1000000;m['credits']='x0.04 credits'
    if chosen['auth_index']=='demo-002':rows=rows[:3]+[{'id':'fixture-second-account','name':'第二账号目录 · 模拟'}]
    for m in rows:variants.append({'origin':'dynamic','channel':ch,'auth_index':chosen['auth_index'],'model':m})
   sources.append({'channel':ch,'accounts':options,'auth_index':chosen['auth_index'] if chosen else '', 'name':chosen['nickname'] if chosen else '', 'basis':'manual' if wanted and chosen else 'invalid_account' if wanted else 'selected' if chosen and chosen.get('selected') else 'automatic' if chosen else 'no_account','status':status,'count':len(rows),'cached':False,'fetched_at':now() if rows else '', 'endpoints':[{'source':'enterprise_models','path':'/console/enterprises/personal/models','status':'ok','count':len(rows)},{'source':'v3_config','path':'/v3/config','status':'ok','count':len(rows)}] if rows else []})
- for ch in ['cn','global','intl']:
+ for ch in ['cn','intl']:
   variants.append({'origin':'custom','channel':ch,'config_key':'models','model':{'id':'fixture-custom','name':'自定义模型 · 模拟','context_length':262144,'max_completion_tokens':32000,'metadata_source':'custom'}})
   if ch!='cn':variants.append({'origin':'custom','channel':ch,'config_key':'models','model':{'id':'deepseek-v4.1-flash','name':'自定义配置名 · 模拟','context_length':500000,'max_completion_tokens':64000,'metadata_source':'custom'}})
  variants.append({'origin':'custom','channel':'cn','config_key':'models_cn','model':{'id':'fixture-pin-cn','name':'固定列表条目 · 模拟','metadata_source':'pin'}})
@@ -102,7 +103,8 @@ class Handler(BaseHTTPRequestHandler):
     content=content.replace(b'__WB_MANAGEMENT_BASE__',BASE.encode()).replace(b'__WB_RESOURCE_BASE__',RESOURCE.encode()).replace(b'<head>',b'<head><script>window.__WB_PREVIEW__=true;sessionStorage.setItem("workbuddy-mgmt-key","local-fixture-only");</script>')
    return self.send(content,content={'html':'text/html','js':'application/javascript','css':'text/css'}[name.split('.')[-1]]+'; charset=utf-8')
   requests.append({'method':'GET','path':p})
-  if p==BASE+'/settings':return self.send({k:config.get(k,v) for k,v in {'checkin_auto':True,'lifecycle_auto':True,'token_keepalive':False,'travel_auto':False,'scheduler_mode':'host'}.items()})
+  if p==BASE+'/settings':return self.send({**{k:config.get(k,v) for k,v in {'checkin_auto':True,'lifecycle_auto':True,'token_keepalive':False,'travel_auto':False,'scheduler_mode':'host'}.items()},'last_travel_run':None,'business_hours':[9,21],'schedule_timezone':'UTC'})
+  if p==BASE+'/activation/status':return self.send({'status':'action_required','registration':'required','trial_eligibility':'unknown','checked_at':now(),'official_url':'https://www.workbuddy.ai/'})
   if p==BASE+'/credits':
    idx=parse_qs(urlparse(self.path).query).get('auth_index',[''])[0];return self.send({'accounts':[a for a in accounts if not idx or a['auth_index']==idx],'server_time_iso':now()})
   if p==BASE+'/accounts':return self.send({'accounts':accounts,'server_time':now(),'server_time_iso':now()})
@@ -170,6 +172,7 @@ class Handler(BaseHTTPRequestHandler):
     idx='demo-import-'+str(len(accounts)+1)
     accounts.append({'auth_index':idx,'auth_id':idx+'.json','name':idx+'.json','nickname':str(payload.get('nickname') or 'Imported demo account'),'uid':str(payload.get('uid') or idx),'region':'cn','plan':'Demo','disabled':False,'exhausted':False,'selected':False,'runtime':{'status':'active','unavailable':False},'daily_free':[]})
     return self.send({'success':True,'auth_index':idx,'demo':True})
+   if p==BASE+'/trial':return self.send({'success':False,'already_claimed':True,'message':'fixture: already claimed'})
    if p in [BASE+'/keepalive',BASE+'/checkin',BASE+'/trial',BASE+'/tasks/travel',BASE+'/daily-quota/reset']:return self.send({'ok':True,'demo':True,'note':'local simulation; no real account changed'})
   self.send({'error':'not found'},404)
 if __name__=='__main__':

@@ -77,6 +77,9 @@ func travelConfigLocationID(sa *storedAuth) (any, error) {
 // runBuddyTravel performs one travel cycle: claim when arrived, depart when
 // idle. Returns a panel-ready result map.
 func runBuddyTravel(sa *storedAuth) map[string]any {
+	if err := requireBusiness(sa, "travel"); err != nil {
+		return businessErrorResult("", err)
+	}
 	status, err := fetchTravelStatus(sa)
 	if err != nil {
 		return map[string]any{"ok": false, "error": safeManagementError(err)}
@@ -105,9 +108,8 @@ func runBuddyTravel(sa *storedAuth) map[string]any {
 		}
 		locationID, err := travelConfigLocationID(sa)
 		if err != nil {
-			// Fall back to location 1, the value the desktop client uses for
-			// its first destination when config is unavailable.
-			locationID = 1
+			// Do not invent a destination when the upstream config is unknown.
+			return map[string]any{"ok": false, "error": safeManagementError(err)}
 		}
 		data, err := growthJSON(sa, http.MethodPost, upstreamBaseFor(sa), growthTravelDepartPath,
 			map[string]any{"location_id": locationID}, false)
@@ -130,6 +132,6 @@ func runBuddyTravel(sa *storedAuth) map[string]any {
 	case "traveling":
 		return map[string]any{"ok": true, "action": "traveling", "state": status.State, "message": "猫猫正在旅行途中"}
 	default:
-		return map[string]any{"ok": true, "action": status.State, "state": status.State}
+		return map[string]any{"ok": false, "state": status.State, "error": "unrecognized travel status"}
 	}
 }

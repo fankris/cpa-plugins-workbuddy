@@ -76,21 +76,14 @@ func TestAuthHeadersForKeepRefreshTokenScoped(t *testing.T) {
 }
 
 func TestAuthHeadersForIntl(t *testing.T) {
-	sa := &storedAuth{Auth: storedTokens{
-		AccessToken: "access-token",
-		Domain:      "https://codebuddy.ai/",
-		Region:      regionIntl,
-	}}
+	sa := &storedAuth{Auth: storedTokens{AccessToken: "access-token", Domain: "https://codebuddy.ai/", Region: regionIntl}}
 	req, _ := http.NewRequest(http.MethodGet, "https://example.test/models", nil)
 	authHeadersFor(req, sa, false)
-	if got := req.Header.Get("Origin"); got != originRefererIntl {
-		t.Fatalf("Intl Origin = %q, want %q", got, originRefererIntl)
+	if req.Header.Get("Origin") != originRefererGlobal || req.Header.Get("Authorization") != "Bearer access-token" || req.Header.Get("X-Refresh-Token") != "" {
+		t.Fatal(req.Header)
 	}
-	if got := req.Header.Get("X-IDE-Type"); got != "IDE" {
-		t.Fatalf("Intl X-IDE-Type = %q, want IDE", got)
-	}
-	if got := req.Header.Get("X-Requested-With"); got != "" {
-		t.Fatalf("Intl X-Requested-With = %q, want empty", got)
+	if sa.Auth.Domain != "https://codebuddy.ai/" {
+		t.Fatal("credential mutated")
 	}
 }
 

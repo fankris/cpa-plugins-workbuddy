@@ -37,7 +37,7 @@ func sanitizeUIDForFileName(uid string) string {
 func authFileNameFor(sa *storedAuth) string {
 	if sa != nil {
 		if uid := sanitizeUIDForFileName(sa.Account.UID); uid != "" {
-			switch accountServiceRegion(sa) {
+			switch credentialOriginService(sa) {
 			case regionGlobal:
 				return "workbuddy-Global-" + uid + ".json"
 			case regionIntl:

@@ -185,7 +185,7 @@ func TestPanelWorkspaceNavigationAndCompatibility(t *testing.T) {
 func TestAccountPanelKeepsFullListAndServerEligibility(t *testing.T) {
 	// This is only a build-level guard. Functional assertions live in rebuild-browser.mjs.
 	js := string(servePanel("/panel.js").body)
-	for _, marker := range []string{"trial_eligible", "trial_claimed", "auth_index", "models_enabled", "/credentials/status", "outcomeUnknown"} {
+	for _, marker := range []string{"capabilities", "trial_eligibility", "auth_index", "models_enabled", "/credentials/status", "outcomeUnknown"} {
 		if !strings.Contains(js, marker) {
 			t.Fatalf("missing account/API contract %s", marker)
 		}

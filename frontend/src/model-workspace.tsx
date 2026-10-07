@@ -2,7 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {RefreshCw,Search,ChevronRight,SlidersHorizontal,X} from 'lucide-react';
 import {request} from './api';
 import {useViewState} from './view-state';
-import {hubChannels,hubView,isHubResponse,hubConfiguredDisabled,hubFetchFailures,hubIssue,hubParameterDifference,type HubRow} from './model-hub';
+import {hubSourceSelection,hubChannels,hubView,isHubResponse,hubConfiguredDisabled,hubFetchFailures,hubIssue,hubParameterDifference,type HubRow} from './model-hub';
 import {ModelMetadata} from './secondary-pages';
 type T=(key:string)=>string;
 type Props={connected:boolean,busy:boolean,config:HubRow|null,t:T,date:(x:any)=>string,fmt:(x:any)=>string,onError:(e:unknown)=>void,onToggle:(m:HubRow,after:()=>Promise<void>)=>void,refreshRef:React.MutableRefObject<(()=>Promise<void>)|null>};
@@ -41,10 +41,11 @@ function SourcesDialog({sources,data,loading,error,busy,selection,setSelection,t
 export function ModelWorkspace({connected,busy,config,t,date,fmt,onError,onToggle,refreshRef}:Props){
  const [selection,setSelection]=useViewState<Record<string,string>>('hubSources',{}),[query,setQuery]=useViewState('hubQuery',''),[origin,setOrigin]=useViewState('hubOrigin','all'),[channel,setChannel]=useViewState('hubChannel','all'),[sort,setSort]=useViewState('hubSort','sourceOrder');
  const [sourcesOpen,setSourcesOpen]=useState(false),[data,setData]=useState<HubRow|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState(''),[detail,setDetail]=useState<HubRow|null>(null),[sourceSnapshot,setSourceSnapshot]=useState<HubRow[]>([]);
- const sequence=useRef(0),alive=useRef(true),selectionKey=JSON.stringify(selection);
+ const sequence=useRef(0),alive=useRef(true),selectionKey=JSON.stringify(hubSourceSelection(selection));
+ useEffect(()=>{if(channel==='global')setChannel('intl');if(selection.global)setSelection(hubSourceSelection(selection))},[]);
  async function load(force=false){
   const seq=++sequence.current;setLoading(true);setError('');setData(null);setDetail(null);
-  try{const params=new URLSearchParams(Object.entries(selection).filter(([ch,id])=>hubChannels.includes(ch)&&!!id));const result=await request(force?'/models/hub/refresh':'/models/hub?'+params.toString(),force?'POST':'GET',force?{sources:selection}:undefined);if(!isHubResponse(result))throw Error('invalidResponse');if(alive.current&&seq===sequence.current){setData(result);setSourceSnapshot(result.sources)}}
+  try{const params=new URLSearchParams(Object.entries(hubSourceSelection(selection)).filter(([ch,id])=>hubChannels.includes(ch)&&!!id));const result=await request(force?'/models/hub/refresh':'/models/hub?'+params.toString(),force?'POST':'GET',force?{sources:hubSourceSelection(selection)}:undefined);if(!isHubResponse(result))throw Error('invalidResponse');if(alive.current&&seq===sequence.current){setData(result);setSourceSnapshot(result.sources)}}
   catch(e){if(alive.current&&seq===sequence.current){setError((e as Error).message||'requestFailed');onError(e)}}finally{if(alive.current&&seq===sequence.current)setLoading(false)}
  }
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;sequence.current++}},[]);

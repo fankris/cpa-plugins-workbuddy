@@ -26,7 +26,7 @@ func (a lifecycleAction) String() string {
 	case lifecycleDisable:
 		return "disable"
 	case lifecycleDelete:
-		return "delete"
+		return "disable_retained"
 	case lifecycleReenable:
 		return "reenable"
 	default:

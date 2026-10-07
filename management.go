@@ -152,9 +152,10 @@ func managementRegistration() managementRegistrationResponse {
 			{Method: http.MethodGet, Path: base + "/panel.js"},
 			{Method: http.MethodGet, Path: base + "/panel.css"},
 			{Method: http.MethodGet, Path: base + "/panel-i18n.js"},
+			{Method: http.MethodGet, Path: base + "/activation/status", Description: "Read-only international activation status; never registers a region or claims trial."},
 			{Method: http.MethodGet, Path: base + "/settings", Description: "Read active WorkBuddy automation and scheduler settings."},
 			{Method: http.MethodGet, Path: base + "/accounts", Description: "List WorkBuddy accounts with credits, plan and check-in status."},
-			{Method: http.MethodPost, Path: base + "/refresh", Description: "Force refresh quota/cache for all accounts."},
+			{Method: http.MethodPost, Path: base + "/refresh", Description: "Refresh all accounts and reconcile maintenance; may update notes or disabled state."},
 			{Method: http.MethodPost, Path: base + "/checkin", Description: "Manually check in one account (auth_index) or all."},
 			{Method: http.MethodPost, Path: base + "/checkin/config", Description: "Toggle auto check-in (enabled: true/false)."},
 			{Method: http.MethodGet, Path: base + "/credits", Description: "Get real-time credits for one (auth_index query) or all accounts."},
@@ -259,8 +260,12 @@ func handleManagement(raw []byte) ([]byte, error) {
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleCreditsQuery(req)))
 	case req.Method == http.MethodPost && path == base+"/import":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleImportAuth(req)))
+	case req.Method == http.MethodGet && path == base+"/activation/status":
+		result := handleActivationStatus(req, modelsCtx)
+		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
 	case req.Method == http.MethodPost && path == base+"/trial":
-		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleClaimTrial(req)))
+		result := handleClaimTrial(req)
+		return okEnvelope(mgmtJSONResponse(taskHTTPStatus(result), result))
 	case req.Method == http.MethodPost && path == base+"/select":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleSelectAuth(req)))
 	case req.Method == http.MethodPost && path == base+"/keepalive":

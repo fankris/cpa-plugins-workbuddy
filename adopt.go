@@ -63,7 +63,7 @@ func authIdentityKey(sa *storedAuth) string {
 	if uid == "" {
 		return ""
 	}
-	return strings.ToLower(uid + "\x00" + accountServiceRegion(sa))
+	return strings.ToLower(uid + "\x00" + credentialOriginService(sa))
 }
 
 func isLegacyCodebuddyIntlAuthName(name string) bool {

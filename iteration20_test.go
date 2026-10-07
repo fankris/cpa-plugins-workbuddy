@@ -36,8 +36,8 @@ func TestManagerRealmCredentialCompatibility(t *testing.T) {
 		t.Fatal(sa, e)
 	}
 	wire, _ := storedAuthJSON(sa)
-	if serviceRealmForStorage(wire, "opaque") != regionIntl {
-		t.Fatal("cross-service override")
+	if serviceRealmForStorage(wire, "opaque") != regionGlobal {
+		t.Fatal("WB default entrypoint missing")
 	}
 }
 func TestHubKnownExpirySelection(t *testing.T) {

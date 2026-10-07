@@ -75,22 +75,7 @@ func schedulerLoop(ctx context.Context) {
 				return
 			}
 			now := time.Now()
-			if shouldRunNightGrowthNow(now) {
-				// 01:00 night tick: ONLY the night-window tasks (夜猫子). The
-				// daily growth pass rides the 09:00/21:00 ticks, which sit
-				// outside the 23:00–08:00 window, so black_cat would never be
-				// lit automatically without this dedicated run. The reference
-				// scheduler does exactly this (每日 01:00 夜猫子).
-				runNightGrowthAll()
-				continue
-			}
-			runAutoCheckin()
-			// Fire keepalive if the current tick falls within its scheduled
-			// window (e.g. 22:00 keepalive fires on the 22:00 tick even though
-			// the previous checkin tick was 21:00).
-			if shouldRunKeepaliveNow(now) {
-				runTokenKeepalive()
-			}
+			runScheduledBusinessTick(now)
 		}
 	}
 }
@@ -157,7 +142,7 @@ func processAutoCheckinAccount(f pluginapi.HostAuthFileEntry, doCheckin bool) {
 		if err != nil {
 			return
 		}
-		if isWorkBuddyService(sa) {
+		if !supportsBusiness(sa, "checkin") {
 			// WorkBuddy service: never check-in or auto-claim trial. Lifecycle only.
 			// Invalidate cache (copy entry, set credits=nil, keep plan/checkin).
 			if v, ok := accountCache.Load(f.ID); ok {
@@ -216,9 +201,7 @@ func processAutoCheckinAccount(f pluginapi.HostAuthFileEntry, doCheckin bool) {
 		// the daily growth tasks (event reports + claims) and run the buddy
 		// travel loop. Both are best-effort: a growth failure must never
 		// affect check-in or lifecycle results.
-		if growthAutoEnabled() {
-			runGrowthAutomation(f.AuthIndex, sa)
-		}
+
 		if lifecycleEnabled() {
 			_, _ = reconcileOneAccount(f.AuthIndex, f.ID, true)
 		}
@@ -338,11 +321,13 @@ func checkinOneAccount(f pluginapi.HostAuthFileEntry) map[string]any {
 	}
 	out["nickname"] = sa.Account.Nickname
 
-	if isWorkBuddyService(sa) {
+	if !supportsBusiness(sa, "checkin") {
 		out["success"] = false
 		out["skipped"] = true
 		out["reason"] = "global"
-		out["message"] = "国际版账号不支持签到，请使用领取专家加油包"
+		out["status"] = "skipped"
+		out["code"] = "unsupported_region"
+		out["message"] = "国外账号不适用签到；试用套餐须满足上游资格"
 		return out
 	}
 

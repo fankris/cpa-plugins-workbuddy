@@ -316,7 +316,7 @@ func applyExhaustedPolicy(authIndex, authID string, sa *storedAuth, cr *creditsS
 	if !lifecycleEnabled() {
 		return nil
 	}
-	action := lifecycleActionFor(accountServiceRegion(sa), cr)
+	action := lifecycleActionFor(credentialOriginService(sa), cr)
 	switch action {
 	case lifecycleDelete:
 		return deleteAuth(authIndex, authID, sa)
@@ -401,7 +401,7 @@ func reconcileOneAccount(authIndex, authID string, force bool) (action lifecycle
 		}
 	}
 
-	region := accountServiceRegion(sa)
+	region := credentialOriginService(sa)
 	if region == regionCN && disabled {
 		if shouldReenableCN(true, cr) {
 			if err := reenableAuth(authIndex, authID, sa, cr); err != nil {

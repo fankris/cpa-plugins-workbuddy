@@ -1,7 +1,7 @@
 package main
 
 // Model hub joins observations, never CPA routing decisions. One directory
-// account per service, one row per exact upstream ID, full per-source variants.
+// account per geographic region, one row per exact upstream ID, full per-source variants.
 import (
 	"context"
 	"encoding/json"
@@ -13,7 +13,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
-var hubChannels = []string{regionCN, regionGlobal, regionIntl}
+var hubChannels = []string{regionCN, regionIntl}
 
 type hubAccount struct {
 	ID        string `json:"auth_index"`
@@ -186,6 +186,13 @@ func handleModelHub(req pluginapi.ManagementRequest, parent context.Context, for
 			requested[ch] = strings.TrimSpace(body.Sources[ch])
 		}
 	}
+	// Accept the former WB foreign source key, but an explicit intl choice wins.
+	if requested[regionIntl] == "" {
+		requested[regionIntl] = strings.TrimSpace(body.Sources[regionGlobal])
+		if requested[regionIntl] == "" {
+			requested[regionIntl] = strings.TrimSpace(queryParam(req, regionGlobal))
+		}
+	}
 	sort.SliceStable(files, func(i, j int) bool { return files[i].AuthIndex < files[j].AuthIndex })
 	credentials := map[string]hubCredential{}
 	sources := make([]hubSource, len(hubChannels))
@@ -208,7 +215,7 @@ func handleModelHub(req pluginapi.ManagementRequest, parent context.Context, for
 			continue
 		}
 		token, _ := extractAccessToken(raw)
-		channel := serviceRealmForStorage(raw, token)
+		channel := displayRegionForService(serviceRealmForStorage(raw, token))
 		reason := hubAccountReason(file.Disabled, token, sa.Auth.ExpiresAt, time.Now())
 		available := reason == ""
 		name := sa.Account.Nickname

@@ -69,10 +69,10 @@ func TestHubCustomDisabledPinsAndChannels(t *testing.T) {
 		if len(m.DynamicChannels) != 0 {
 			t.Fatal("configuration masquerades as dynamic")
 		}
-		if m.ID == "all" && (len(m.Variants) != 3 || !m.Variants[0].Model.Disabled) {
+		if m.ID == "all" && (len(m.Variants) != 2 || !m.Variants[0].Model.Disabled) {
 			t.Fatal(m)
 		}
-		if m.ID == "international" && len(m.CustomChannels) != 2 {
+		if m.ID == "international" && len(m.CustomChannels) != 1 {
 			t.Fatal(m)
 		}
 	}
@@ -132,7 +132,7 @@ func TestHubHandlerOnePerChannelScopeCacheAndNoRoutingMutation(t *testing.T) {
 	ctx := withHostCallbackID(context.Background(), "hub")
 	r := handleModelHub(pluginapi.ManagementRequest{}, ctx, false)
 	sources := r["sources"].([]hubSource)
-	if r["status"] != "ok" || sources[0].Account != "cn-b" || sources[0].Basis != "selected" || sources[1].Account != "global" || sources[2].Status != "unsupported" || cn.Load() != 2 || global.Load() != 2 {
+	if r["status"] != "ok" || sources[0].Account != "cn-b" || sources[0].Basis != "selected" || sources[1].Account != "global" || len(sources) != 2 || len(sources[1].Accounts) != 2 || sources[1].Channel != regionIntl || cn.Load() != 2 || global.Load() != 2 {
 		t.Fatal(r, cn.Load(), global.Load())
 	}
 	if getActiveAuthID() != "cn-b-file" {

@@ -1,3 +1,11 @@
+# rebuild24 — regional business isolation
+
+See docs/ITERATION-24.md. CN-only check-in/tasks/travel; read-only international activation; unknown trial eligibility; independent bounded travel worker; authenticated task requests; narrow overseas billing fallback.
+
+# v8.0.15-2.0.0-rebuild.23
+
+纠正为国内/国外两渠道；WB默认入口，兼容CB凭据。移除CB国际动态目录跳过限制；保留CPA凭据与维护政策，不改路由。详见 docs/ITERATION-23.md。
+
 # v8.0.15-2.0.0-rebuild.22
 
 四工作区完善；积分读取与全账号维护分离；真实三渠道字段，安全合并，任务优先顺序，设置运行态未知处理。详见 docs/ITERATION-22.md。

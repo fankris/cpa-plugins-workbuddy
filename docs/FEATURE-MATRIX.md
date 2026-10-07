@@ -1,8 +1,8 @@
-> 本轮变化与实际验证范围：ITERATION-22.md / VALIDATION-22.json。下方旧迭代测试引用为历史记录，不代表本轮全部重跑。
+> 本轮变化与实际验证范围：ITERATION-23.md / VALIDATION-23.json。下方旧迭代测试引用为历史记录，不代表本轮全部重跑。
 
 # CPA 主体 / WorkBuddy 扩展边界
 
-当前：rebuild.22。Manager 是业务与交互参考，不是插件架构主体。
+当前：rebuild.23。Manager 是业务与交互参考，不是插件架构主体。
 
 | 能力 | 权威归属 | 插件职责 |
 |---|---|---|

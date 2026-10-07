@@ -8,6 +8,7 @@ export function outcome(value:any):string {
  if(value.status==='canceled')return 'canceled';
  if(value.status==='idle')return 'idle';
  if(value.already_claimed||value.reason==='already')return 'already';
+ if(value.status==='skipped'||value.skipped===true||['global','intl'].includes(value.reason))return 'skipped';
  if(value.error||value.success===false||value.ok===false||['failed','error','session-dead'].includes(value.status)){
   return value.accepted>0?'partial':'failed';
  }

@@ -35,7 +35,7 @@ def callback(ctx,method,raw,size,out):
   method=method.decode();request=json.loads(C.string_at(raw,size) or b'{}')
   with lock:calls.append(method)
   if method=='host.log':return respond(out,{})
-  if method=='host.auth.list':return respond(out,{'files':[{'name':'team-alpha.json','type':'workbuddy','auth_index':'fixture-index','id':'team-alpha.json'}] if mode.startswith('models') or mode=='billing' else []})
+  if method=='host.auth.list':return respond(out,{'files':[{'name':'team-alpha.json','type':'workbuddy','auth_index':'fixture-index','id':'team-alpha.json'}] if mode.startswith('models') or mode in ('billing','activation') else []})
   if method=='host.auth.get':return respond(out,{'auth_index':'fixture-index','name':'team-alpha.json','path':'team-alpha.json','json':{'type':'workbuddy',**storage}})
   if method=='host.http.operation_open':
    assert request.get('host_callback_id','')==scope
@@ -49,11 +49,16 @@ def callback(ctx,method,raw,size,out):
    assert request.get('operation_id') in ops
    assert request.get('host_callback_id','')==scope
    assert request.get('request',{}).get('url','').startswith('https://')
+   if mode=='cb-execute':assert request['request']['url'].startswith('https://www.workbuddy.ai/')
    if mode=='blocked':
     started.set();assert canceled.wait(5),'cancellation did not reach pending headers'
     return respond(out,error='operation canceled')
+   if method=='host.http.do' and mode=='activation':
+    assert request['request']['method']=='GET' and '/overseas/user/register?' in request['request']['url']
+    return respond(out,{'StatusCode':200,'Body':encode({'code':500})})
    if method=='host.http.do' and mode=='billing':
     url=request['request']['url']
+    if storage.get('auth',{}).get('region')=='intl':assert 'checkin' not in url and url.startswith('https://www.workbuddy.ai/')
     if url.endswith('/get-user-resource'):data={'Response':{'Data':{'TotalCount':1,'Accounts':[{'PackageName':'Pro','CapacityRemain':75,'CapacityUsed':25,'CapacitySize':100}]}}}
     elif url.endswith('/get-payment-type'):data={'paymentType':'Pro'}
     elif url.endswith('/checkin-activity-status'):data={'checked_in':True,'today_checked_in':True}
@@ -71,8 +76,8 @@ def callback(ctx,method,raw,size,out):
    return respond(out,{'status_code':200,'headers':{},'stream_id':stream})
   if method=='host.http.stream_read':
    stream=request['stream_id'];assert not streams[stream];streams[stream]=True
-   chunk='data: '+json.dumps({'id':'fixture','choices':[{'index':0,'delta':{'content':'bridge-ok'},'finish_reason':'stop' if mode=='normal' else None}]})+'\n\n'
-   if mode=='normal':chunk+='data: [DONE]\n\n'
+   chunk='data: '+json.dumps({'id':'fixture','choices':[{'index':0,'delta':{'content':'bridge-ok'},'finish_reason':'stop' if mode in ('normal','cb-execute') else None}]})+'\n\n'
+   if mode in ('normal','cb-execute'):chunk+='data: [DONE]\n\n'
    return respond(out,{'payload':encode(chunk.encode()),'done':True,**({'error':'upstream disconnected'} if mode=='terminal-error' else {})})
   if method=='host.http.stream_close':return respond(out,{})
   return respond(out,error='unexpected mock callback '+method)
@@ -108,6 +113,12 @@ for method in ('executor.execute','executor.execute_stream'):
  if method=='executor.execute':assert b'bridge-ok' in base64.b64decode(result['result']['Payload'])
  else:assert result['result']['chunks']
 checks.append('sync and streaming collection execute through owned host operations with callback scope')
+mode='cb-execute'
+cb_request={**request,'StorageJSON':encode({'auth':{'accessToken':'cb-fixture','domain':'codebuddy.ai','region':'intl'},'account':{'uid':'cb-fixture'}})}
+rc,result=invoke('executor.execute',cb_request);assert rc==0 and result['ok'],result
+assert b'bridge-ok' in base64.b64decode(result['result']['Payload'])
+checks.append('compiled CB-origin international inference uses WB gateway via CPA-owned HTTP operations')
+
 mode='terminal-error';rc,result=invoke('executor.execute',request);assert not result['ok'] and result['error']['http_status']==502
 checks.append('terminal upstream error remains an error across the compiled C boundary')
 mode='normal';scope='probe-refresh';rc,result=invoke('auth.refresh',{'StorageJSON':encode(storage),'host_callback_id':scope});assert rc==0 and result['ok'],result
@@ -137,7 +148,7 @@ checks.append('compiled account directory fetches both sources with callback sco
 scope='probe-hub'
 req={'Method':'POST','Path':'/v0/management/plugins/workbuddy/models/hub/refresh','Body':encode({'sources':{}}),'host_callback_id':scope}
 rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
-body=json.loads(base64.b64decode(result['result']['Body']));assert body['status']=='ok' and len(body['sources'])==3 and body['models'],body
+body=json.loads(base64.b64decode(result['result']['Body']));assert body['status']=='ok' and len(body['sources'])==2 and body['models'],body
 assert all(v['origin']=='dynamic' for m in body['models'] for v in m['variants']),body
 assert len({m['id'] for m in body['models']})==len(body['models'])
 checks.append('compiled model hub selects one account per channel, propagates callback scope and returns unique IDs with provenance')
@@ -150,6 +161,14 @@ assert body['sources'][1]['status']=='ok' and body['models'][0]['id']=='manager-
 assert len(body['sources'][1]['endpoints'][0]['attempts'])==2,body
 assert 'manager-opaque-fixture' not in json.dumps(body)
 checks.append('compiled Manager auth.realm flows to global-only host requests; business endpoint fallback and string-code response are accepted without token exposure')
+storage={'auth':{'accessToken':'cb-opaque-fixture','domain':'www.codebuddy.ai','region':'intl'},'account':{'uid':'cb-fixture'}}
+before_saves=calls.count('host.auth.save')
+rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
+body=json.loads(base64.b64decode(result['result']['Body']))
+assert len(body['sources'])==2 and body['sources'][1]['channel']=='intl' and body['sources'][1]['status']=='ok',body
+assert body['models'][0]['id']=='manager-global-model' and calls.count('host.auth.save')==before_saves
+assert 'cb-opaque-fixture' not in json.dumps(body)
+checks.append('compiled CB international credential shares the foreign channel and WB gateway; no credential writes or token exposure')
 storage=previous_storage
 
 
@@ -172,6 +191,23 @@ for query in ({'auth_index':['fixture-index']},{}):
  assert body['accounts'][0]['credits']['fetched_at'] and body['accounts'][0]['service']=='cn',body
  assert calls.count('host.auth.save')==before_saves
 checks.append('scoped and bulk credit reads return timestamped channel snapshots without CPA credential writes')
+storage={'auth':{'accessToken':'foreign-fixture','region':'intl'},'account':{'uid':'foreign-fixture'}}
+mode='billing';before_saves=calls.count('host.auth.save')
+rc,result=invoke('management.handle',{'Method':'GET','Path':'/v0/management/plugins/workbuddy/credits'})
+body=json.loads(base64.b64decode(result['result']['Body']));a=body['accounts'][0]
+assert a['capabilities']['checkin']['supported'] is False and a['capabilities']['trial']['eligibility']=='unknown',body
+checks.append('compiled foreign credit read has no check-in HTTP and returns unknown trial eligibility, not entitlement')
+before_http=calls.count('host.http.do')
+rc,result=invoke('management.handle',{'Method':'POST','Path':'/v0/management/plugins/workbuddy/tasks/travel','Body':encode({'auth_index':'fixture-index'})})
+body=json.loads(base64.b64decode(result['result']['Body']))
+assert result['result']['StatusCode']==422 and body['code']=='unsupported_region' and calls.count('host.http.do')==before_http,result
+checks.append('compiled foreign travel returns structured HTTP422 with zero upstream calls')
+mode='activation'
+rc,result=invoke('management.handle',{'Method':'GET','Path':'/v0/management/plugins/workbuddy/activation/status','Query':{'auth_index':['fixture-index']}})
+body=json.loads(base64.b64decode(result['result']['Body']))
+assert body['registration']=='required' and body['trial_eligibility']=='unknown' and calls.count('host.auth.save')==before_saves,body
+checks.append('compiled explicit activation diagnosis uses GET only; does not register, grant trial or modify credentials')
+storage=previous_storage
 mode='blocked';scope='probe-blocked';request['host_callback_id']=scope;canceled.clear();thread_errors=[]
 def blocked():
  try:

@@ -52,7 +52,7 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 			// goroutines (reconcileOneAccount) may read the same entry.
 			// FetchedAt is stamped at Store time; if it's empty (legacy entry),
 			// the panel can derive it from prev.fetched if needed.
-			return prev.plan, prev.checkin, prev.credits, append([]string(nil), prev.errs...)
+			return prev.plan, supportedCheckinSnapshot(sa, prev.checkin), prev.credits, append([]string(nil), prev.errs...)
 		}
 	}
 
@@ -72,7 +72,7 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 		// Re-read cache: fetcher already Stored; use whatever won the race.
 		if v, ok := accountCache.Load(authID); ok {
 			if e, ok2 := v.(*accountCacheEntry); ok2 {
-				return e.plan, e.checkin, e.credits, other.errs
+				return e.plan, supportedCheckinSnapshot(sa, e.checkin), e.credits, other.errs
 			}
 		}
 		return other.plan, other.ci, other.cr, other.errs
@@ -99,6 +99,9 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 	go func() { defer wg.Done(); plan = fetchPaymentType(sa) }()
 	go func() {
 		defer wg.Done()
+		if !supportsBusiness(sa, "checkin") {
+			return
+		}
 		if c, err := fetchCheckinStatus(sa); err == nil {
 			ci = c
 		} else {
@@ -124,7 +127,7 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 	}
 	// Stale-while-error: carry over previous values for fields that failed.
 	if prev != nil {
-		if ci == nil {
+		if ci == nil && supportsBusiness(sa, "checkin") {
 			ci = prev.checkin
 		}
 		if cr == nil {
@@ -187,4 +190,11 @@ func cachedCheckinToday(authID string) *bool {
 	}
 	b := e.checkin.TodayCheckedIn
 	return &b
+}
+
+func supportedCheckinSnapshot(sa *storedAuth, ci *checkinSummary) *checkinSummary {
+	if !supportsBusiness(sa, "checkin") {
+		return nil
+	}
+	return ci
 }

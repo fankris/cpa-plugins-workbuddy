@@ -215,7 +215,7 @@ func handleGrowthTaskList(req pluginapi.ManagementRequest) map[string]any {
 	idx := taskAuthIndex(req)
 	sa, err := resolveGrowthAuth(idx)
 	if err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	tasks, err := listGrowthTasks(sa)
 	if err != nil {
@@ -231,27 +231,27 @@ func handleGrowthTaskAccept(req pluginapi.ManagementRequest) map[string]any {
 		TaskCode  string   `json:"task_code"`
 	}
 	if err := jsonUnmarshalLimit(req.Body, &body); err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	if len(body.TaskCodes) == 0 && strings.TrimSpace(body.TaskCode) != "" {
 		body.TaskCodes = []string{body.TaskCode}
 	}
 	if len(body.TaskCodes) == 0 {
-		return map[string]any{"auth_index": idx, "error": "task_codes 是必填项"}
+		return map[string]any{"auth_index": idx, "error": "task_codes 是必填项", "code": "invalid_request"}
 	}
 	cleanCodes, err := normalizeGrowthTaskCodes(body.TaskCodes)
 	if err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	sa, err := resolveGrowthAuth(idx)
 	if err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	lock := growthTaskLockFor(idx)
 	lock.Lock()
 	defer lock.Unlock()
 	if err := acceptGrowthTasks(sa, cleanCodes); err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	return map[string]any{"ok": true, "auth_index": idx, "accepted": len(cleanCodes)}
 }
@@ -260,7 +260,7 @@ func handleGrowthTaskAcceptAll(req pluginapi.ManagementRequest) map[string]any {
 	idx := taskAuthIndex(req)
 	sa, err := resolveGrowthAuth(idx)
 	if err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	if pluginQuiescing() {
 		return map[string]any{"ok": false, "auth_index": idx, "busy": true, "error": errPluginQuiescing.Error()}
@@ -331,22 +331,24 @@ func handleGrowthTaskClaim(req pluginapi.ManagementRequest) map[string]any {
 		TaskCode string `json:"task_code"`
 	}
 	if err := jsonUnmarshalLimit(req.Body, &body); err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	code := strings.TrimSpace(body.TaskCode)
 	if code == "" {
-		return map[string]any{"auth_index": idx, "error": "task_code 是必填项"}
+		return map[string]any{"auth_index": idx, "error": "task_code 是必填项", "code": "invalid_request"}
 	}
 	sa, err := resolveGrowthAuth(idx)
 	if err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	lock := growthTaskLockFor(idx)
 	lock.Lock()
 	defer lock.Unlock()
 	result, err := claimGrowthTask(sa, code)
 	if err != nil {
-		return map[string]any{"auth_index": idx, "task_code": code, "error": safeManagementError(err)}
+		r := businessErrorResult(idx, err)
+		r["task_code"] = code
+		return r
 	}
 	result["ok"] = true
 	result["auth_index"] = idx
@@ -363,7 +365,10 @@ func jsonUnmarshalLimit(raw []byte, dst any) error {
 	if len(raw) == 0 {
 		return nil
 	}
-	return json.Unmarshal(raw, dst)
+	if err := json.Unmarshal(raw, dst); err != nil {
+		return &businessRequestError{"invalid_request", "invalid request JSON"}
+	}
+	return nil
 }
 
 func safeManagementError(err error) string {
@@ -374,6 +379,15 @@ func safeManagementError(err error) string {
 }
 
 func taskHTTPStatus(result map[string]any) int {
+	if result["code"] == "unsupported_region" {
+		return http.StatusUnprocessableEntity
+	}
+	if result["code"] == "invalid_request" {
+		return http.StatusBadRequest
+	}
+	if result["code"] == "not_found" {
+		return http.StatusNotFound
+	}
 	if result != nil {
 		if _, ok := result["error"]; ok {
 			if busy, _ := result["busy"].(bool); busy {
@@ -395,7 +409,7 @@ func handleGrowthTaskLight(req pluginapi.ManagementRequest) map[string]any {
 	idx := taskAuthIndex(req)
 	sa, err := resolveGrowthAuth(idx)
 	if err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	if pluginQuiescing() {
 		return map[string]any{"ok": false, "auth_index": idx, "busy": true, "error": errPluginQuiescing.Error()}
@@ -447,7 +461,7 @@ func handleGrowthTravel(req pluginapi.ManagementRequest) map[string]any {
 	idx := taskAuthIndex(req)
 	sa, err := resolveGrowthAuth(idx)
 	if err != nil {
-		return map[string]any{"auth_index": idx, "error": safeManagementError(err)}
+		return businessErrorResult(idx, err)
 	}
 	lock := growthTaskLockFor(idx)
 	lock.Lock()

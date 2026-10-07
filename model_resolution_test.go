@@ -132,7 +132,7 @@ func TestModelResolutionFallbackKeepsLocalDiagnostics(t *testing.T) {
 func TestModelResolutionStaticIsSkippedNotVerified(t *testing.T) {
 	modelTestState(t)
 	discoverModelsFn = func(string, string) ([]pluginapi.ModelInfo, error) { t.Error("unexpected intl probe"); return nil, nil }
-	raw := mustJSON(&storedAuth{Auth: storedTokens{AccessToken: "intl-fixture", Region: regionIntl}, Account: storedAccount{UID: "intl"}})
+	raw := mustJSON(&storedAuth{Auth: storedTokens{AccessToken: "", Region: regionIntl}, Account: storedAccount{UID: "intl"}})
 	r := resolveCredentialModels(context.Background(), raw, true)
 	if r.Status != "skipped" || !strings.Contains(r.Source.Source, "static") {
 		t.Fatal(r.Status, r.Source)

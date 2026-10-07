@@ -227,16 +227,16 @@ func modelHintForRealm(realm string) string {
 	}
 	label := "该区域缓存目录 / cached realm catalog"
 	if len(ids) == 0 {
-		for _, m := range staticModelsForRealm(realm) {
+		for _, m := range staticModelsForRealm(displayRegionForService(realm)) {
 			if !isGloballyDisabledModel(m.ID) {
 				ids = append(ids, m.ID)
 			}
 		}
-		realmTag := strings.ToUpper(strings.TrimSpace(realm))
+		realmTag := strings.ToUpper(displayRegionForService(realm))
 		if realmTag == "" {
 			realmTag = "CN"
 		}
-		label = fmt.Sprintf("静态 %s 目录（该区域已知支持；动态发现优先，也可用 models_%s 配置写死） / static %s catalog (known-good for this realm; dynamic discovery wins, or pin via models_%s)",
+		label = fmt.Sprintf("静态 %s 目录（内置参考，未验证此账号；动态发现优先，也可用 models_%s 配置写死） / static %s catalog (built-in reference, unverified for this account; dynamic discovery wins, or pin via models_%s)",
 			realmTag, strings.ToLower(realmTag), realmTag, strings.ToLower(realmTag))
 	}
 	if len(ids) > 20 {

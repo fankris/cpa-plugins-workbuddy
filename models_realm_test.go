@@ -48,7 +48,7 @@ func TestModelsEndpointFor(t *testing.T) {
 	}{
 		{"cn", "https://copilot.tencent.com/console/enterprises/personal/models", "https://www.codebuddy.cn"},
 		{"global", "https://www.workbuddy.ai/console/enterprises/personal/models", "https://www.workbuddy.ai"},
-		{"intl", "https://www.codebuddy.ai/console/enterprises/personal/models", "https://www.codebuddy.ai"},
+		{"intl", "https://www.workbuddy.ai/console/enterprises/personal/models", "https://www.workbuddy.ai"},
 		{"", "https://copilot.tencent.com/console/enterprises/personal/models", "https://www.codebuddy.cn"}, // unknown → CN default
 	}
 	for _, c := range cases {
@@ -88,7 +88,7 @@ func TestRealmForStorage(t *testing.T) {
 	if got := serviceRealmForStorage([]byte(`{"auth":{"region":"intl","domain":"workbuddy.ai"}}`), "t"); got != regionGlobal {
 		t.Errorf("legacy WorkBuddy service = %q, want global", got)
 	}
-	if got := serviceRealmForStorage([]byte(`{"auth":{"region":"intl","domain":"codebuddy.ai"}}`), "t"); got != regionIntl {
+	if got := serviceRealmForStorage([]byte(`{"auth":{"region":"intl","domain":"codebuddy.ai"}}`), "t"); got != regionGlobal {
 		t.Errorf("CodeBuddy service = %q, want intl", got)
 	}
 }
@@ -311,41 +311,30 @@ func TestFetchDynamicModelsPinnedWins(t *testing.T) {
 
 // TestFetchDynamicModelsIntlStaticByDefault verifies that Intl never probes
 // the retired/500 model endpoint unless the user explicitly pins models_intl.
-func TestFetchDynamicModelsIntlStaticByDefault(t *testing.T) {
+func TestFetchDynamicModelsIntlUsesWBByDefault(t *testing.T) {
 	resetPinnedModels()
 	resetDynamicModelsCache()
 	defer func() { resetPinnedModels(); resetDynamicModelsCache() }()
-	orig := discoverModelsFn
-	defer func() { discoverModelsFn = orig }()
+	old := discoverModelsFn
+	defer func() { discoverModelsFn = old }()
 	calls := 0
 	discoverModelsFn = func(token, realm string) ([]pluginapi.ModelInfo, error) {
 		calls++
-		return realmTestModels("must-not-be-used"), nil
+		if realm != regionGlobal || token != "tok" {
+			t.Error(token, realm)
+		}
+		return realmTestModels("foreign-from-wb"), nil
 	}
-
 	got := fetchDynamicModelsFromStorage([]byte(`{"auth":{"domain":"codebuddy.ai","accessToken":"tok"}}`))
-	if calls != 0 {
-		t.Fatalf("Intl must not probe dynamic discovery, calls=%d", calls)
+	if calls != 1 || len(got) != 1 || got[0].ID != "foreign-from-wb" {
+		t.Fatal(calls, got)
 	}
-	// Intl serves the measured international desktop catalog (static source).
-	if !realmCatalogHas(got, "deepseek-v4.1-flash") || !realmCatalogHas(got, "gpt-6-astra") {
-		t.Fatalf("intl static result must be the measured international catalog, got %d models", len(got))
-	}
-	if realmCatalogHas(got, "deepseek-v4-flash") || realmCatalogHas(got, "deepseek-v4-pro") {
-		t.Fatalf("intl static result must not carry CN-only DeepSeek entries: %#v", got)
-	}
-	st := realmModelStateFor("intl")
-	if st == nil || st.Source != "static (intl dynamic discovery unavailable)" {
-		t.Fatalf("intl model state = %+v, want static source", st)
-	}
-	if st.Count != len(got) {
-		t.Fatalf("intl model state count = %d, want %d", st.Count, len(got))
+	st := realmModelStateFor(regionGlobal)
+	if st == nil || st.Source != "discovery" {
+		t.Fatal(st)
 	}
 }
 
-// TestFetchDynamicModelsFallbackPerRealm: discovery failure falls back to
-// the REALM's static catalog — the v0.12.18 bug (shared CN fallback
-// advertised deepseek-v4-flash to Intl accounts → upstream 11102) stays dead.
 func TestFetchDynamicModelsFallbackPerRealm(t *testing.T) {
 	resetPinnedModels()
 	resetDynamicModelsCache()
@@ -429,7 +418,7 @@ func TestTranslateChatUpstreamError_11102(t *testing.T) {
 
 	_, err := translateChatUpstreamError(http.StatusBadRequest, payload, sa)
 	msg := err.Error()
-	for _, want := range []string{"11102", "codebuddy.ai", "deepseek-v4-flash"} {
+	for _, want := range []string{"11102", "workbuddy.ai", "deepseek-v4-flash"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("11102 error missing %q: %s", want, msg)
 		}

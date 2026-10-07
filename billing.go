@@ -87,36 +87,17 @@ func panelRegion(sa *storedAuth) string {
 	return accountRegion(sa)
 }
 
-// accountServiceRegion retains the actual upstream gateway identity. "global"
-// is only an internal compatibility key for legacy workbuddy.ai credentials.
+// wbServiceForRegion chooses the default existing-account API entrypoint.
+// WB/CB are interoperable entrypoints within a region, not separate channels.
+// Keep "global" as a wire-compatible internal key for the WB foreign gateway.
+func wbServiceForRegion(region string) string {
+	if region == regionIntl || region == regionGlobal {
+		return regionGlobal
+	}
+	return regionCN
+}
 func accountServiceRegion(sa *storedAuth) string {
-	if sa == nil {
-		return regionCN
-	}
-	// The gateway hostname is authoritative when available. Region is a public
-	// grouping field and may already be migrated from legacy Global to Intl.
-	if isGlobalDomain(sa.Auth.Domain) {
-		return regionGlobal
-	}
-	if isIntlDomain(sa.Auth.Domain) {
-		return regionIntl
-	}
-	if isCNDomain(sa.Auth.Domain) {
-		return regionCN
-	}
-	if strings.TrimSpace(sa.Auth.Domain) == "" && isGlobalToken(sa.Auth.AccessToken) {
-		return regionGlobal
-	}
-	switch strings.ToLower(strings.TrimSpace(sa.Auth.Region)) {
-	case regionGlobal:
-		return regionGlobal
-	case regionIntl:
-		return regionIntl
-	case regionCN:
-		return regionCN
-	default:
-		return regionCN
-	}
+	return wbServiceForRegion(accountRegion(sa))
 }
 
 func isWorkBuddyService(sa *storedAuth) bool {
@@ -441,7 +422,7 @@ func parseBillingHTTPResponse(resp pluginapi.HTTPResponse, path string) (json.Ra
 		return nil, fmt.Errorf("parse failed: %w (body: %s)", err, redactedSnippet(raw, 120))
 	}
 	if env.Code != 0 {
-		return nil, fmt.Errorf("code=%d msg=%s", env.Code, truncateRedacted(env.Msg, 120))
+		return nil, &billingBusinessError{Code: env.Code, Message: truncateRedacted(env.Msg, 120)}
 	}
 	return env.Data, nil
 }
@@ -456,6 +437,9 @@ func redactedSnippet(raw []byte, limit int) string {
 }
 
 func fetchCheckinStatus(sa *storedAuth) (*checkinSummary, error) {
+	if err := requireBusiness(sa, "checkin"); err != nil {
+		return nil, err
+	}
 	var data json.RawMessage
 	var lastErr error
 	for _, path := range []string{"/v2/billing/meter/checkin-activity-status", "/v2/billing/meter/checkin-status"} {
@@ -599,7 +583,7 @@ func fetchUserResourceWithClient(ctx context.Context, client pluginapi.HostHTTPC
 			return nil, fmt.Errorf("credits: pagination limit exceeded; refusing partial balance")
 		}
 		body["PageNumber"] = page
-		data, err := billingCallWithClient(ctx, client, sa, "/v2/billing/meter/get-user-resource", body)
+		data, err := billingResourceRead(ctx, client, sa, body)
 		if err != nil {
 			return nil, err
 		}
@@ -714,6 +698,9 @@ func fetchPaymentTypeWithClient(ctx context.Context, client pluginapi.HostHTTPCl
 }
 
 func performCheckinCall(sa *storedAuth) (map[string]any, error) {
+	if err := requireBusiness(sa, "checkin"); err != nil {
+		return nil, err
+	}
 	data, err := billingCall(sa, "/v2/billing/meter/daily-checkin", nil)
 	if err != nil {
 		// billingCall returns business errors (code != 0) as Go errors; surface
@@ -766,6 +753,9 @@ func coerceBool(v any, def bool) bool {
 // Pro Plan Trial".
 // Repeat call: code=14051 "has applied trial" — surfaced as already_claimed.
 func performTrialCall(sa *storedAuth) (map[string]any, error) {
+	if err := requireBusiness(sa, "trial"); err != nil {
+		return nil, err
+	}
 	data, err := billingCall(sa, "/billing/ide/trial", nil)
 	if err != nil {
 		msg := err.Error()
@@ -879,4 +869,68 @@ func jsonStr(m map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// credentialOriginService is a storage/legacy-policy compatibility key ONLY.
+// Never use it to split user channels or choose existing-account API gateways.
+func credentialOriginService(sa *storedAuth) string {
+	if sa == nil {
+		return regionCN
+	}
+	// The gateway hostname is authoritative when available. Region is a public
+	// grouping field and may already be migrated from legacy Global to Intl.
+	if isGlobalDomain(sa.Auth.Domain) {
+		return regionGlobal
+	}
+	if isIntlDomain(sa.Auth.Domain) {
+		return regionIntl
+	}
+	if isCNDomain(sa.Auth.Domain) {
+		return regionCN
+	}
+	if strings.TrimSpace(sa.Auth.Domain) == "" && isGlobalToken(sa.Auth.AccessToken) {
+		return regionGlobal
+	}
+	switch strings.ToLower(strings.TrimSpace(sa.Auth.Region)) {
+	case regionGlobal:
+		return regionGlobal
+	case regionIntl:
+		return regionIntl
+	case regionCN:
+		return regionCN
+	default:
+		return regionCN
+	}
+}
+
+// Fallback is only for an absent read endpoint, never for authorization,
+// throttling, malformed payloads or mutations such as trial/checkin.
+type billingBusinessError struct {
+	Code    int
+	Message string
+}
+
+func (e *billingBusinessError) Error() string {
+	return fmt.Sprintf("code=%d msg=%s", e.Code, e.Message)
+}
+func billingResourceRead(ctx context.Context, client pluginapi.HostHTTPClient, sa *storedAuth, body any) (json.RawMessage, error) {
+	paths := []string{"/v2/billing/meter/get-user-resource"}
+	if accountRegion(sa) == regionIntl {
+		paths = []string{"/billing/meter/get-user-resource", "/v2/billing/meter/get-user-resource"}
+	}
+	var data json.RawMessage
+	var err error
+	for i, path := range paths {
+		data, err = billingCallWithClient(ctx, client, sa, path, body)
+		if err == nil {
+			return data, nil
+		}
+		var h *upstreamError
+		var b *billingBusinessError
+		absent := (errors.As(err, &h) && (h.StatusCode == 404 || h.StatusCode == 405)) || (errors.As(err, &b) && b.Code == 404)
+		if !absent || i == len(paths)-1 {
+			break
+		}
+	}
+	return nil, err
 }

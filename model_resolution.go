@@ -90,13 +90,11 @@ func resolveCredentialModels(parent context.Context, storage []byte, force bool)
 		noteRealmSource(service, "pin (unverified)", len(pinned))
 		return modelResult(pinned, "pin (unverified)", "skipped")
 	}
-	if (realm == regionIntl && service != regionGlobal) || token == "" {
+	if token == "" {
 		base := builtinStaticModelsForRealm(realm)
 		models := appendCustomModels(realm, base)
 		source := "static (no token in storage)"
-		if realm == regionIntl && service != regionGlobal {
-			source = "static (intl dynamic discovery unavailable)"
-		}
+
 		source = modelSourceWithCustom(realm, source, base)
 		noteRealmSource(service, source, len(models))
 		return modelResult(models, source, "skipped")

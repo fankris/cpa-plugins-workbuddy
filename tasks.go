@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Growth task support is intentionally kept inside the CPA plugin. Account
@@ -82,20 +84,15 @@ type growthTaskResult struct {
 // Growth tasks are currently verified only on the CN growth service. Do not
 // send CN activity requests with Global or Intl credentials by accident.
 func growthTasksSupported(sa *storedAuth) bool {
-	return sa != nil && accountRegion(sa) == regionCN
+	return supportsBusiness(sa, "tasks")
 }
 
-func growthUnsupportedError(sa *storedAuth) error {
-	if sa == nil {
-		return fmt.Errorf("账号凭证为空")
-	}
-	return fmt.Errorf("成长任务当前仅支持 CN 账号，当前区域为 %s", accountRegion(sa))
-}
+func growthUnsupportedError(sa *storedAuth) error { return &businessCapabilityError{Feature: "tasks"} }
 
 func validateGrowthTaskCode(code string) error {
 	code = strings.TrimSpace(code)
 	if !taskCodePattern.MatchString(code) {
-		return fmt.Errorf("无效任务编号")
+		return &businessRequestError{"invalid_request", "无效任务编号"}
 	}
 	return nil
 }
@@ -138,7 +135,9 @@ func growthHeaders(req *http.Request, sa *storedAuth, web bool) {
 		// the credential's X-Domain, which may point at the chat realm.
 		req.Header.Set("X-Domain", growthTasksWebOrigin)
 	} else {
-		commonHeadersForAuth(req, sa)
+		// Existing-account task requests need Bearer authentication too,
+		// not just the common Origin/User-Agent headers.
+		authHeadersFor(req, sa, false)
 		req.Header.Set("X-Product", "SaaS")
 	}
 	if sa.Account.UID != "" {
@@ -174,7 +173,9 @@ func growthJSON(sa *storedAuth, method, base, path string, body any, web bool) (
 		}
 		reader = bytes.NewReader(raw)
 	}
-	req, err := http.NewRequest(method, strings.TrimRight(base, "/")+path, reader)
+	ctx, cancel := context.WithTimeout(pluginContext(), 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(base, "/")+path, reader)
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +391,7 @@ func growthTaskLockFor(authIndex string) *sync.Mutex {
 
 func resolveGrowthAuth(authIndex string) (*storedAuth, error) {
 	if strings.TrimSpace(authIndex) == "" {
-		return nil, fmt.Errorf("auth_index 是必填项")
+		return nil, &businessRequestError{"invalid_request", "auth_index 是必填项"}
 	}
 	files, err := hostAuthList()
 	if err != nil {
@@ -408,7 +409,7 @@ func resolveGrowthAuth(authIndex string) (*storedAuth, error) {
 			return sa, nil
 		}
 	}
-	return nil, fmt.Errorf("账号不存在")
+	return nil, &businessRequestError{"not_found", "账号不存在"}
 }
 
 func acceptedGrowthTaskCodes(tasks []growthTask) []string {

@@ -17,8 +17,8 @@ func TestBillingBaseFor_Regions(t *testing.T) {
 		domain string
 		want   string
 	}{
-		{"codebuddy.ai", "https://www.codebuddy.ai"},        // Intl → Intl gateway
-		{"www.codebuddy.ai", "https://www.codebuddy.ai"},    // subdomain variant
+		{"codebuddy.ai", "https://www.workbuddy.ai"},        // Intl → Intl gateway
+		{"www.codebuddy.ai", "https://www.workbuddy.ai"},    // subdomain variant
 		{"workbuddy.ai", "https://www.workbuddy.ai"},        // Global → Global gateway
 		{"copilot.tencent.com", "https://www.codebuddy.cn"}, // CN → CN gas station
 		{"", "https://www.codebuddy.cn"},                    // legacy files default CN
@@ -40,11 +40,8 @@ func TestBillingBaseFor_Regions(t *testing.T) {
 // browser traffic and bounces them).
 func TestBillingHeaders_IntlRealm(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("X-IDE-Type"); got != "IDE" {
-			t.Errorf("X-IDE-Type = %q, want IDE", got)
-		}
-		if r.Header.Get("X-Requested-With") != "" {
-			t.Error("X-Requested-With should be dropped for Intl accounts")
+		if r.Header.Get("Origin") != originRefererGlobal {
+			t.Error("expected WB international origin")
 		}
 		if got := r.Header.Get("Authorization"); !strings.HasPrefix(got, "Bearer ") {
 			t.Errorf("Authorization = %q, want Bearer ...", got)
@@ -57,10 +54,10 @@ func TestBillingHeaders_IntlRealm(t *testing.T) {
 	sa := &storedAuth{}
 	sa.Auth.Domain = "codebuddy.ai"
 	sa.Auth.AccessToken = "intl-test-token"
-	oldBase := billingBaseIntl
-	billingBaseIntl = srv.URL
+	oldBase := billingBaseGlobal
+	billingBaseGlobal = srv.URL
 	restore := installHostHTTPTestDirect()
-	defer func() { restore(); billingBaseIntl = oldBase }()
+	defer func() { restore(); billingBaseGlobal = oldBase }()
 	if _, err := billingCallOnce(sa, "/probe", nil); err != nil {
 		t.Fatalf("billingCallOnce: %v", err)
 	}
