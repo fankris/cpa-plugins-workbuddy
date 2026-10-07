@@ -164,6 +164,14 @@ before=calls.count('host.http.do');rc,result=invoke('management.handle',req)
 assert calls.count('host.http.do')==before,'Warm dashboard repeated upstream billing'
 assert 'host.auth.save' not in calls,'Read-only dashboard wrote credentials'
 checks.append('compiled cold dashboard fetches and aggregates actual mock billing through CPA HTTP; warm read uses cache without credential writes')
+for query in ({'auth_index':['fixture-index']},{}):
+ before_saves=calls.count('host.auth.save')
+ rc,result=invoke('management.handle',{'Method':'GET','Path':'/v0/management/plugins/workbuddy/credits','Query':query})
+ body=json.loads(base64.b64decode(result['result']['Body']))
+ assert len(body['accounts'])==1 and body['accounts'][0]['credits']['total_remain']==75,body
+ assert body['accounts'][0]['credits']['fetched_at'] and body['accounts'][0]['service']=='cn',body
+ assert calls.count('host.auth.save')==before_saves
+checks.append('scoped and bulk credit reads return timestamped channel snapshots without CPA credential writes')
 mode='blocked';scope='probe-blocked';request['host_callback_id']=scope;canceled.clear();thread_errors=[]
 def blocked():
  try:

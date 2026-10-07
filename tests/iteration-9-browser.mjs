@@ -23,7 +23,7 @@ try{
   await noOverlap(page,frame,'dialog .modal-head>button');await frame.locator('dialog .modal-head>button').click();
   if(host==='cpamc'){
    const before=await page.locator('.floating-actions').evaluate(n=>n.outerHTML);
-   await frame.locator('.section-nav').getByRole('button',{name:'模型诊断',exact:true}).click();
+   await frame.locator('.section-nav').getByRole('button',{name:'模型中心',exact:true}).click();
    assert.equal(await page.locator('.floating-actions').evaluate(n=>n.outerHTML),before,'plugin mutated host toolbar');
   }
   for(const locale of ['en','ru','zh-TW']){

@@ -20,6 +20,8 @@ type wbAccount struct {
 	Label         string            `json:"label"`
 	Nickname      string            `json:"nickname"`
 	UID           string            `json:"uid"`
+	Service       string            `json:"service"`
+	DataError     string            `json:"data_error,omitempty"`
 	Region        string            `json:"region"` // "cn" | "intl"
 	TrialEligible bool              `json:"trial_eligible,omitempty"`
 	Plan          string            `json:"plan"`
@@ -195,6 +197,7 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 			acct.Nickname = sa.Account.Nickname
 			acct.UID = sa.Account.UID
 			acct.Region = panelRegion(sa)
+			acct.Service = accountServiceRegion(sa)
 			acct.TrialEligible = isWorkBuddyService(sa)
 			acct.Models = realmModelStateFor(accountServiceRegion(sa))
 
@@ -221,6 +224,7 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 					_ = syncAuthNote(f.AuthIndex, f.ID, sa, cr, acct.Disabled)
 				}
 				acct.Error = strings.Join(errs, "; ")
+				acct.DataError = acct.Error
 			} else {
 				// Light load: use cached values if available, but don't fetch upstream.
 				if v, ok := accountCache.Load(f.ID); ok {

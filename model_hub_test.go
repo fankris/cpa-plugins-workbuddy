@@ -132,7 +132,7 @@ func TestHubHandlerOnePerChannelScopeCacheAndNoRoutingMutation(t *testing.T) {
 	ctx := withHostCallbackID(context.Background(), "hub")
 	r := handleModelHub(pluginapi.ManagementRequest{}, ctx, false)
 	sources := r["sources"].([]hubSource)
-	if r["status"] != "partial" || sources[0].Account != "cn-b" || sources[0].Basis != "selected" || sources[1].Account != "global" || sources[2].Status != "unsupported" || cn.Load() != 2 || global.Load() != 2 {
+	if r["status"] != "ok" || sources[0].Account != "cn-b" || sources[0].Basis != "selected" || sources[1].Account != "global" || sources[2].Status != "unsupported" || cn.Load() != 2 || global.Load() != 2 {
 		t.Fatal(r, cn.Load(), global.Load())
 	}
 	if getActiveAuthID() != "cn-b-file" {

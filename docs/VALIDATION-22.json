@@ -1,0 +1,74 @@
+{
+  "version": "v8.0.15-2.0.0-rebuild.22",
+  "date": "2026-10-07",
+  "go_race": {
+    "passed": 593,
+    "skipped": 1
+  },
+  "go_vet": "PASS",
+  "typescript": "PASS",
+  "frontend_build": "PASS",
+  "node_tests": 117,
+  "fixture_browser_scenarios": 28,
+  "browser_reports": {
+    "new": {
+      "checks": [
+        "390: scoped read preserves directory; no maintenance POST; details folded",
+        "390: connection collapsed, actionable attention",
+        "390: CN account-first, five counted task filters",
+        "390: incomplete runtime unknown; three groups; maintenance requires explicit confirmation",
+        "1366: scoped read preserves directory; no maintenance POST; details folded",
+        "1366: connection collapsed, actionable attention",
+        "1366: CN account-first, five counted task filters",
+        "1366: incomplete runtime unknown; three groups; maintenance requires explicit confirmation"
+      ],
+      "result": "PASS",
+      "fixtureOnly": true
+    },
+    "model_regression": {
+      "result": "PASS",
+      "checks": [
+        "1366: model list first, no unsupported-channel alarm/cards or auto-open diagnostics; representative metadata names its source",
+        "1366: origin tabs and channel filtering intersect; shown parameters follow the visible source",
+        "1366: source chooser is an on-demand dialog, does not displace list; unsupported is explanatory, diagnostics collapsed",
+        "1366: genuine failure names channel and reason, preserves others; technical cause is reachable without automatic interruption",
+        "1366: compact list and source dialog fit four official language remounts without reviving legacy warning panels",
+        "1024: model list first, no unsupported-channel alarm/cards or auto-open diagnostics; representative metadata names its source",
+        "1024: origin tabs and channel filtering intersect; shown parameters follow the visible source",
+        "1024: source chooser is an on-demand dialog, does not displace list; unsupported is explanatory, diagnostics collapsed",
+        "1024: genuine failure names channel and reason, preserves others; technical cause is reachable without automatic interruption",
+        "1024: compact list and source dialog fit four official language remounts without reviving legacy warning panels",
+        "390: model list first, no unsupported-channel alarm/cards or auto-open diagnostics; representative metadata names its source",
+        "390: origin tabs and channel filtering intersect; shown parameters follow the visible source",
+        "390: source chooser is an on-demand dialog, does not displace list; unsupported is explanatory, diagnostics collapsed",
+        "390: genuine failure names channel and reason, preserves others; technical cause is reachable without automatic interruption",
+        "390: compact list and source dialog fit four official language remounts without reviving legacy warning panels",
+        "320: model list first, no unsupported-channel alarm/cards or auto-open diagnostics; representative metadata names its source",
+        "320: origin tabs and channel filtering intersect; shown parameters follow the visible source",
+        "320: source chooser is an on-demand dialog, does not displace list; unsupported is explanatory, diagnostics collapsed",
+        "320: genuine failure names channel and reason, preserves others; technical cause is reachable without automatic interruption",
+        "320: compact list and source dialog fit four official language remounts without reviving legacy warning panels"
+      ],
+      "errors": [],
+      "backend": "synthetic, not live account acceptance"
+    }
+  },
+  "plain_http": {
+    "result": "PASS",
+    "secure": false,
+    "uuid": "undefined",
+    "actualPlainHTTP": true,
+    "pageErrors": []
+  },
+  "official_frontend": {
+    "tested": true,
+    "version": "CPAMC v1.25.3",
+    "sha256": "866bae020785b59126a209e89389b77f673fd791beb2208ea650dcc07b3a108d",
+    "backend": "local fixture only"
+  },
+  "limitations": [
+    "Synthetic backend only; no real-account or official CPA backend acceptance",
+    "Historic browser suites not all rerun; only 22 and 21 suites counted",
+    "Production untouched"
+  ]
+}

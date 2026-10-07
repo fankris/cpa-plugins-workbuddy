@@ -20,7 +20,7 @@ try{
  await ctx.request.post(base+'/__test/reset',{data:{}});await page.goto(base);await page.locator('tbody tr').first().waitFor();
  await page.locator('tbody tr').filter({hasText:'Alex · Workspace'}).getByText('未知',{exact:true}).waitFor();checks.push('missing CPA runtime stays unknown in account table');
  assert.ok(await page.locator('tbody tr').getByText('需要关注',{exact:true}).count()>0);checks.push('CPA error does not render available');
- await page.locator('.section-nav').getByRole('button',{name:'模型诊断',exact:true}).click();await page.locator('.models-table tbody tr button').first().click();await page.locator('.hub-config-control button:enabled').click();await page.locator('dialog').getByRole('button',{name:'确认操作'}).click();
+ await page.locator('.section-nav').getByRole('button',{name:'模型中心',exact:true}).click();await page.locator('.models-table tbody tr button').first().click();await page.locator('.hub-config-control button:enabled').click();await page.locator('dialog').getByRole('button',{name:'确认操作'}).click();
  await page.locator('.operation-strip .badge').filter({hasText:'结果未确认'}).waitFor();
  await page.locator('.models-table tbody tr button').first().click();await page.locator('.hub-config-control').getByText('已启用',{exact:true}).waitFor();await page.locator('.hub-dialog .modal-head button').click();assert.equal(writes,1);checks.push('successful HTTP PUT with stale readback does not claim saved or change model badge');
  await page.locator('.operation-strip button').click();await page.locator('dialog .badge').filter({hasText:'结果未确认'}).waitFor();assert.equal(writes,1);checks.push('unconfirmed feedback remains inspectable inline without result page or mutation replay');

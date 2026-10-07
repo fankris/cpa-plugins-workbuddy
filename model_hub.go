@@ -261,7 +261,7 @@ func handleModelHub(req pluginapi.ManagementRequest, parent context.Context, for
 	partial := len(failures) > 0
 	for i, s := range sources {
 		variants = append(variants, grouped[i]...)
-		if s.Status != "ok" && s.Status != "no_account" {
+		if s.Status != "ok" && s.Status != "no_account" && s.Status != "unsupported" {
 			partial = true
 		}
 	}

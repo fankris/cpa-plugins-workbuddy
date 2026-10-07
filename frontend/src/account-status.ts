@@ -7,7 +7,7 @@ export function accountStatus(account:Record<string,any>):AccountStatus {
  if(account.disabled===true||status==='disabled')return 'disabled';
  if(typeof runtime?.cooldown_seconds==='number'&&runtime.cooldown_seconds>0)return 'cooldown';
  if(account.exhausted===true)return 'exhausted';
- if(account.error||runtime?.unavailable===true||status==='error')return 'needsAttention';
+ if((account.error&&!account.data_error)||runtime?.unavailable===true||status==='error')return 'needsAttention';
  // Missing, incomplete, pending or future statuses are not proof of health.
  if(status!=='active')return 'unknown';
  return 'available';
@@ -17,5 +17,5 @@ export function accountStatus(account:Record<string,any>):AccountStatus {
 export function accountMatchesFilter(account:Record<string,any>,filter:string):boolean {
  if(filter==='all')return true;
  const status=accountStatus(account);
- return filter==='attention'?['needsAttention','cooldown','exhausted'].includes(status):status===filter;
+ return filter==='attention'?(!!account.data_error||['needsAttention','cooldown','exhausted'].includes(status)):status===filter;
 }

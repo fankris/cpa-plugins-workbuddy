@@ -15,7 +15,7 @@ for i,(name,realm,plan,balance) in enumerate([
  ('Product Lab','cn','Pro',7800),('Archive','intl','Free',1260),('Sandbox','cn','Free',2500),('Mobile Workspace','intl','Premium',4620),
 ]):
  credits=None if balance is None else {'total_remain':balance,'total_used':max(0,15000-balance),'total_size':15000,'fetched_at':now(),'packages':[{'name':plan+' · Demo package','remain':balance,'used':15000-balance,'size':15000,'cycle_end':'2026-11-01T00:00:00Z'}]}
- accounts.append({'auth_index':f'demo-{i+1:03}','auth_id':f'demo-{i+1:03}.json','name':f'demo-{i+1:03}.json','nickname':name,'uid':f'fixture-{10001+i}','region':realm,'plan':plan,'disabled':i==7,'exhausted':balance==0,'selected':i==0,'credits':credits,'runtime':None if i==5 else {'status':'active','unavailable':i in (3,4,7),'cooldown_seconds':180 if i==3 else 0,'priority':0,'success':120+i*41,'failed':2 if i==3 else 0},'daily_free':[]})
+ accounts.append({'auth_index':f'demo-{i+1:03}','auth_id':f'demo-{i+1:03}.json','name':f'demo-{i+1:03}.json','nickname':name,'uid':f'fixture-{10001+i}','region':realm,'service':('cn' if realm=='cn' else 'global' if i in (2,9) else 'intl'),'plan':plan,'disabled':i==7,'exhausted':balance==0,'selected':i==0,'credits':credits,'runtime':None if i==5 else {'status':'active','unavailable':i in (3,4,7),'cooldown_seconds':180 if i==3 else 0,'priority':0,'success':120+i*41,'failed':2 if i==3 else 0},'daily_free':[]})
 models=[{'id':v,'name':v,'context_length':n,'max_completion_tokens':32768,'disabled':i>5} for i,(v,n) in enumerate([('hunyuan-pro',128000),('deepseek-v4.1-flash',128000),('glm-5.2',200000),('kimi-k2',128000),('qwen3-coder',256000),('hunyuan-turbos',32000),('demo-model-unverified',0),('demo-model-disabled',0)])]
 config={'enabled':True,'scheduler_mode':'host','login_region':'cn','login_platform':'CLI','future_opaque':{'preserve':True},'models_enabled':[m['id'] for m in models if not m['disabled']]}
 tasks=[{'task_code':'demo-one','title':'完成首次工作空间配置','description':'演示任务 · 显示上游返回的进度与状态，不生成虚假活动。','current':1,'target':1,'credit':50,'claimable':True,'claimed':False,'accept_status':'accepted'}, {'task_code':'demo-two','title':'体验项目协作','description':'演示任务 · 需要在官方客户端完成真实操作。','current':2,'target':5,'credit':100,'claimable':False,'claimed':False,'accept_status':'accepted'}, {'task_code':'demo-three','title':'了解工作空间功能','description':'演示任务 · 接受任务不会被标记为已完成。','current':0,'target':1,'credit':30,'claimable':False,'claimed':False,'accept_status':'available'}]
@@ -70,7 +70,7 @@ def hub_fixture(selection=None):
   key=v['origin']+'_channels'
   if v['channel'] not in r[key]:r[key].append(v['channel'])
   r['variants'].append(v)
- return {'status':'partial' if any(s['status'] not in ['ok','no_account'] for s in sources) else 'ok','models':[rows[k] for k in sorted(rows)],'sources':sources,'account_errors':[],'count':len(rows)}
+ return {'status':'partial' if any(s['status'] not in ['ok','no_account','unsupported'] for s in sources) else 'ok','models':[rows[k] for k in sorted(rows)],'sources':sources,'account_errors':[],'count':len(rows)}
 class Handler(BaseHTTPRequestHandler):
  def log_message(self,*args):pass
  def send(self,data,status=200,content='application/json; charset=utf-8'):
@@ -103,6 +103,8 @@ class Handler(BaseHTTPRequestHandler):
    return self.send(content,content={'html':'text/html','js':'application/javascript','css':'text/css'}[name.split('.')[-1]]+'; charset=utf-8')
   requests.append({'method':'GET','path':p})
   if p==BASE+'/settings':return self.send({k:config.get(k,v) for k,v in {'checkin_auto':True,'lifecycle_auto':True,'token_keepalive':False,'travel_auto':False,'scheduler_mode':'host'}.items()})
+  if p==BASE+'/credits':
+   idx=parse_qs(urlparse(self.path).query).get('auth_index',[''])[0];return self.send({'accounts':[a for a in accounts if not idx or a['auth_index']==idx],'server_time_iso':now()})
   if p==BASE+'/accounts':return self.send({'accounts':accounts,'server_time':now(),'server_time_iso':now()})
   if p in ('/v8/management/config/plugins/configs/workbuddy',BASE+'/config'):return self.send(config)
   if p==BASE+'/models/hub':return self.send(hub_fixture({k:v[0] for k,v in q.items()}))

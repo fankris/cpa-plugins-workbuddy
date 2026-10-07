@@ -26,4 +26,4 @@ export function useViewState<T>(name:string,initial:T|(()=>T)){
 }
 
 // Retired result-list filters/history must not remain in a host iframe snapshot.
-export function clearRetiredViewState(){try{const values=snapshot();for(const key of ['logs','resultSearch','resultFilter','modelTab','modelSearch','modelFilter','modelFamily','modelCapability','modelSort','modelToolsOpen','discoveryID'])delete values[key]}catch{}}
+export function clearRetiredViewState(){try{const values=snapshot();for(const key of ['logs','resultSearch','resultFilter','modelTab','modelSearch','modelFilter','modelFamily','modelCapability','modelSort','modelToolsOpen','discoveryID','hubSourcesOpen','taskTab'])delete values[key]}catch{}}

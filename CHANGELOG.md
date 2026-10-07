@@ -1,3 +1,15 @@
+# v8.0.15-2.0.0-rebuild.22
+
+四工作区完善；积分读取与全账号维护分离；真实三渠道字段，安全合并，任务优先顺序，设置运行态未知处理。详见 docs/ITERATION-22.md。
+
+# v8.0.15-2.0.0-rebuild.21
+
+- Model-first list with compact origin tabs, search, channels and sorting.
+- Source accounts in an on-demand dialog; technical details collapsed.
+- Unsupported channels no longer create a generic partial-fetch warning.
+- Genuine failures name the affected channel; differing parameters retain an explicit displayed-source basis.
+- 20 new browser groups and current desktop/mobile screenshots; no claim of user UI acceptance or live-account recovery.
+
 # v8.0.15-2.0.0-rebuild.20
 
 - Preserve Manager realm credentials, exclude known-expired directory sources.

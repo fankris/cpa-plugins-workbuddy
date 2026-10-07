@@ -39,7 +39,7 @@ try{
    if(tab===1)await page.locator('.models-table tbody tr').first().waitFor();
    if(tab===2){await page.locator('main>.toolbar select').selectOption('demo-001');await page.locator('.task-card').first().waitFor()}
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight+1&&document.querySelector('main').scrollHeight<=document.querySelector('main').clientHeight+1),'overflow '+locale+' '+tab);
-   if(tab===1)assert.ok(await page.locator('.hub-mobile-limits').first().isVisible());
+   if(tab===1)assert.ok(await page.locator('.hub-limit').first().isVisible());
    if(tab===2){const action=await page.locator('.task-card .task-actions button').first().boundingBox();assert.ok(action.y+action.height<844)}
   }
   checks.push(locale+': four sections fit mobile width; model limits and task action remain visible');

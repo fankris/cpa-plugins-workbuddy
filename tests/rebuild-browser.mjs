@@ -25,7 +25,7 @@ try{
  await page.locator('dialog').getByRole('button',{name:'关闭',exact:true}).click();
  const traffic=(await (await page.request.get(base+'/__test/state')).json()).requests;
  assert.ok(traffic.some(x=>x.path==='/v8/management/credentials/refresh'&&x.method==='POST'));assert.ok(!traffic.some(x=>x.path.endsWith('/keepalive')));checks.push('token refresh uses native CPA endpoint');
- await page.locator('.section-nav').getByRole('button',{name:'模型诊断',exact:true}).click();await page.locator('tbody tr').first().waitFor();
+ await page.locator('.section-nav').getByRole('button',{name:'模型中心',exact:true}).click();await page.locator('tbody tr').first().waitFor();
  await page.locator('.models-table tbody tr button').first().click();await page.locator('.hub-config-control button:enabled').click();await page.locator('dialog').getByRole('button',{name:'确认操作'}).click();await page.locator('.operation-strip .badge').filter({hasText:'已保存'}).waitFor();
  const state=await (await page.request.get(base+'/__test/state')).json();assert.equal(state.config.future_opaque.preserve,true);checks.push('model toggle preserves unknown plugin settings');
  await page.screenshot({path:'validation/models-desktop.png',fullPage:true});
