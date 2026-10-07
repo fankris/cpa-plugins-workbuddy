@@ -1,16 +1,18 @@
 # CPA 的 WorkBuddy 扩展插件
 
-**当前源码：`v8.0.15-2.0.0-rebuild.19` · 2026-10-06。** 以 CPA 为主体，选择性参考 WorkBuddy Manager 的业务与交互，不移植独立管理架构。
+**当前源码：`v8.0.15-2.0.0-rebuild.20` · 2026-10-07。** 以 CPA 为主体，选择性参考 WorkBuddy Manager 的业务与交互，不移植独立管理架构。
 
 使用 CPA 8.0.15 SDK（ABI1 / schema6），保留原 provider/auth 身份、WorkBuddy 菜单和 `/panel`。每轮只保留一个最新 ZIP，包含源码、Linux amd64插件、带实际截图的离线HTML、许可证与校验清单。
 
 ## 本轮
 
+修复 Manager auth.realm 渠道丢失、过期目录来源、业务信封和候选路径兼容；每渠道失败状态与接口尝试详情直接展示。尚无用户现场数据，不宣称真实账号已恢复。
+
 **本轮重新设计模型中心：按渠道来源账号聚合已获取与自定义模型，逐模型标注来源和渠道，参数差异保留详情；查看来源不改变实际路由。**
 
 保留上一轮：删除结果页，将连接信息放到仪表盘。 原结果页导航、表格、筛选与导出均移除；业务页面保留最近动作的成功/失败/待确认反馈及脱敏详情。旧链接及宿主记住的 results 页面自动迁移到仪表盘。
 
-见 [本轮实现](docs/ITERATION-19.md)、[验证](docs/VALIDATION-19.json)、[职责划分](docs/FEATURE-MATRIX.md)。
+见 [本轮实现](docs/ITERATION-20.md)、[验证](docs/VALIDATION-20.json)、[职责划分](docs/FEATURE-MATRIX.md)。
 
 ## 五个工作区
 

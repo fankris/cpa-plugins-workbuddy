@@ -2,7 +2,7 @@
 """Independent archive audit; extraction only to disposable cache for rebuild."""
 import hashlib,json,zipfile
 from pathlib import Path
-root=Path(__file__).resolve().parents[1];out=root.parent/'deliverables';dest=Path('/home/user/.cache/workbuddy-audit19');dest.mkdir(parents=True,exist_ok=True)
+root=Path(__file__).resolve().parents[1];out=root.parent/'deliverables';dest=Path.home()/'.cache'/('workbuddy-audit'+(root/'VERSION').read_text().strip().rsplit('.',1)[-1]);dest.mkdir(parents=True,exist_ok=True)
 h=lambda b:hashlib.sha256(b).hexdigest()
 p=out/'workbuddy-latest.zip';digest=h(p.read_bytes());manifest=json.loads((out/'PACKAGE-MANIFEST.json').read_text());assert manifest['archives'][0]['sha256']==digest
 with zipfile.ZipFile(p) as z:

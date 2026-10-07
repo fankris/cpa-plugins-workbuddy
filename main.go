@@ -423,7 +423,7 @@ type registrationCapability struct {
 }
 
 // version is injected at build time via -ldflags "-X main.version=...".
-var version = "v8.0.15-1.0.51"
+var version = "v8.0.15-1.0.52"
 
 func wbRegistration() registration {
 	return registration{
@@ -612,6 +612,24 @@ func parseStored(raw []byte) (*storedAuth, error) {
 		sa.Account = storedAccount{UID: flat.UID, EnterpriseID: flat.EnterpriseID, Nickname: flat.Nickname}
 		if strings.TrimSpace(sa.Account.Nickname) == "" {
 			sa.Account.Nickname = firstNonEmptyTrimmed(flat.AccountName, flat.Email)
+		}
+	}
+	// Manager stores the service as auth.realm; retain it before re-serialization.
+	// This is a read compatibility mapping, not an auth-store write or migration.
+	var routing struct {
+		Realm  string `json:"realm"`
+		Region string `json:"region"`
+		Domain string `json:"domain"`
+		Auth   struct {
+			Realm string `json:"realm"`
+		} `json:"auth"`
+	}
+	if json.Unmarshal(raw, &routing) == nil {
+		if sa.Auth.Region == "" {
+			sa.Auth.Region = firstNonEmptyTrimmed(routing.Auth.Realm, routing.Region, routing.Realm)
+		}
+		if sa.Auth.Domain == "" {
+			sa.Auth.Domain = strings.TrimSpace(routing.Domain)
 		}
 	}
 	// Top-level identity also applies to the nested shape: the plugin writes

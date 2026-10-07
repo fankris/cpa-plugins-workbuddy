@@ -1,3 +1,10 @@
+# v8.0.15-2.0.0-rebuild.20
+
+- Preserve Manager realm credentials, exclude known-expired directory sources.
+- Parse string business codes and negotiate fixed same-service compatibility paths.
+- Visible per-channel fetch states, safe endpoint attempts, recovery guidance.
+- Go-to-browser wire test and release C ABI Manager-format credential coverage. No live-account recovery claim.
+
 # v8.0.15-2.0.0-rebuild.19
 
 - Unified model hub across one observational account per channel and explicit custom definitions.

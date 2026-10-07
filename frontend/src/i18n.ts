@@ -2,6 +2,11 @@ import {useEffect,useState} from 'react';
 export type Locale='zh-CN'|'zh-TW'|'en'|'ru';
 export const locales:Locale[]=['zh-CN','zh-TW','en','ru'];
 const rows:Record<string,string[]>={
+hubReason_expired:['令牌已过期','權杖已過期','Token expired','Токен истёк'],
+hubReason_disabled:['账号已禁用','帳號已停用','Account disabled','Аккаунт отключён'],
+hubReason_no_token:['缺少令牌','缺少權杖','No token','Нет токена'],
+hubCredentialError:['凭据读取或解析失败，请在CPA原生账号页面检查','憑據讀取或解析失敗，請在CPA原生帳號頁面檢查','Credential read or parsing failed; inspect in native CPA accounts','Не удалось прочитать данные; проверьте аккаунт в CPA'],
+hubRecovery:['401/403：在CPA原生账号页检查凭据；429：稍后手动重试；宿主请求失败：检查CPA日志与网络。不会用静态列表冒充获取成功。','401/403：在CPA原生帳號頁檢查憑據；429：稍後手動重試；宿主請求失敗：檢查CPA日誌與網路。不會用靜態清單冒充成功。','401/403: check credentials in CPA. 429: retry later. Host failure: inspect CPA logs and network. Static entries never masquerade as a fetched directory.','401/403: проверьте данные в CPA. 429: повторите позже. Ошибка хоста: проверьте журналы и сеть CPA. Статический список не подменяет каталог.'],
 hubDetails:['详情','詳情','Details','Детали'],
 hubTitle:["模型中心", "模型中心", "Model hub", "Центр моделей"],
 hubTotal:["全部模型", "全部模型", "All models", "Все модели"],
@@ -36,6 +41,7 @@ hubStatus_ok:["已获取", "已取得", "Loaded", "Загружено"],
 hubStatus_partial:["部分获取", "部分取得", "Partially loaded", "Загружено частично"],
 hubStatus_failed:["获取失败", "取得失敗", "Fetch failed", "Ошибка загрузки"],
 hubStatus_unsupported:["接口尚未验证", "介面尚未驗證", "Endpoint unverified", "API не проверен"],
+hubStatus_unavailable:['账号不可用','帳號不可用','Accounts unavailable','Аккаунты недоступны'],
 hubStatus_no_account:["未配置", "未設定", "Not configured", "Не настроено"],
 hubStatus_invalid_account:["需重新选择", "需重新選取", "Choose again", "Выберите заново"],
 hubPartial:["部分渠道未取得完整目录，当前只展示实际返回和明确配置的条目。", "部分渠道未取得完整目錄，僅顯示實際回傳與明確設定項目。", "Some channels are incomplete. Showing only returned and explicitly configured entries.", "Некоторые каналы неполны. Показаны только полученные и явно настроенные записи."],

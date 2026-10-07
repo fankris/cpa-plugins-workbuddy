@@ -1,7 +1,7 @@
 {
-  "build": "v8.0.15-2.0.0-rebuild.19",
+  "build": "v8.0.15-2.0.0-rebuild.20",
   "independent_unreleased_build": true,
-  "date": "2026-10-06",
+  "date": "2026-10-07",
   "references": {
     "cpa": {
       "commit": "ba6992e30862e83e07b2a0d4e23de6bed6d1eb68",
@@ -191,5 +191,15 @@
   "iteration19": {
     "reference": "Manager 508f803 model page filtering/sorting and directory semantics; adapted to CPA model-first hub",
     "routing_modified_by_observation": false
+  },
+  "iteration20": {
+    "rechecked_manager_head": "508f803425ce74edc5b7dd6a082ceb415e1c7b62",
+    "files": [
+      "realm.py",
+      "tencent.py",
+      "modelcatalog.py",
+      "routers/models.py"
+    ],
+    "real_account_recovery_verified": false
   }
 }

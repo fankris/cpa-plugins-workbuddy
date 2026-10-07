@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -32,7 +33,15 @@ type directoryModel struct {
 	FamilyDerived      bool             `json:"family_derived"`
 	RoutingStatus      string           `json:"routing_status"`
 }
+type directoryAttempt struct {
+	Path         string `json:"path"`
+	HTTPStatus   int    `json:"http_status,omitempty"`
+	UpstreamCode *int   `json:"upstream_code,omitempty"`
+	Error        string `json:"error,omitempty"`
+}
 type directorySource struct {
+	Attempts []directoryAttempt `json:"attempts,omitempty"`
+
 	Source string `json:"source"`
 	Path   string `json:"path"`
 	Status string `json:"status"`
@@ -234,9 +243,15 @@ func fetchDirectorySource(ctx context.Context, token, uid, service, source strin
 	state := directorySource{Source: source, Status: "error"}
 	for i, path := range paths {
 		state.Path = path
+		attempt := directoryAttempt{Path: path}
+		finish := func(message string) {
+			attempt.Error = message
+			state.Error = message
+			state.Attempts = append(state.Attempts, attempt)
+		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path, nil)
 		if err != nil {
-			state.Error = "invalid endpoint"
+			finish("invalid endpoint")
 			return nil, state
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -244,11 +259,9 @@ func fetchDirectorySource(ctx context.Context, token, uid, service, source strin
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Origin", origin)
 		req.Header.Set("Referer", origin+"/")
-		platform := "WorkBuddy"
-		lang := "zh-CN"
+		platform, lang := "WorkBuddy", "zh-CN"
 		if service == regionGlobal {
-			platform = "WorkBuddy AI"
-			lang = "en-US"
+			platform, lang = "WorkBuddy AI", "en-US"
 		}
 		req.Header.Set("User-Agent", "WorkBuddy/5.5.4 "+platform+"/5.5.4 CLI/2.137.1")
 		req.Header.Set("Accept-Language", lang)
@@ -257,49 +270,81 @@ func fetchDirectorySource(ctx context.Context, token, uid, service, source strin
 		applyFingerprintHeaders(uid, req.Header.Set)
 		resp, err := hostHTTPDo(req)
 		if err != nil {
-			state.Error = "host HTTP request failed"
+			message := "host HTTP request failed"
 			if ctx.Err() != nil {
-				state.Error = "request canceled or timed out"
+				message = "request canceled or timed out"
 			}
+			// Do not expose host error bodies, proxy passwords or bearer tokens.
+			if strings.Contains(err.Error(), "operation open") {
+				message = "host HTTP operation open failed"
+			}
+			if strings.Contains(err.Error(), "bridge unavailable") {
+				message = "CPA host.http bridge unavailable"
+			}
+			finish(message)
 			return nil, state
 		}
+		attempt.HTTPStatus = resp.StatusCode
+		more := i+1 < len(paths)
 		if resp.StatusCode != http.StatusOK {
-			state.Error = fmt.Sprintf("HTTP %d", resp.StatusCode)
-			// Only read-only endpoint absence negotiates an alternate path. Never
-			// evade authorization failures, throttling or server errors by probing.
-			if (resp.StatusCode == 404 || resp.StatusCode == 405) && i+1 < len(paths) {
+			finish(fmt.Sprintf("HTTP %d", resp.StatusCode))
+			// Fixed same-service read-only compatibility paths; no retries for
+			// denied credentials, rate limits, or transient server failures.
+			if more && (resp.StatusCode == 400 || resp.StatusCode == 404 || resp.StatusCode == 405 || resp.StatusCode == 501) {
 				continue
 			}
 			return nil, state
 		}
 		if len(resp.Body) > 4<<20 {
-			state.Error = "directory response too large"
+			finish("directory response too large")
 			return nil, state
 		}
 		var envelope struct {
-			Code *int            `json:"code"`
+			Code json.RawMessage `json:"code"`
 			Data json.RawMessage `json:"data"`
 		}
-		if json.Unmarshal(resp.Body, &envelope) != nil || envelope.Code == nil {
-			state.Error = "invalid directory envelope"
+		var code int
+		valid := json.Unmarshal(resp.Body, &envelope) == nil && len(envelope.Code) > 0 && string(envelope.Code) != "null"
+		if valid && json.Unmarshal(envelope.Code, &code) != nil {
+			var value string
+			valid = json.Unmarshal(envelope.Code, &value) == nil
+			if valid {
+				code, err = strconv.Atoi(value)
+				valid = err == nil
+			}
+		}
+		if !valid {
+			finish("invalid directory envelope")
+			if more {
+				continue
+			}
 			return nil, state
 		}
-		if *envelope.Code != 0 {
-			state.Error = fmt.Sprintf("upstream code %d", *envelope.Code)
+		attempt.UpstreamCode = &code
+		if code != 0 {
+			finish(fmt.Sprintf("upstream code %d", code))
+			// Do not negotiate around explicit authentication/access/throttle errors.
+			if more && code != 401 && code != 403 && code != 429 {
+				continue
+			}
 			return nil, state
 		}
 		rows, err := parseDirectoryPayload(envelope.Data, source)
 		if err != nil {
-			state.Error = err.Error()
+			finish(err.Error())
+			if more {
+				continue
+			}
 			return nil, state
 		}
+		finish("")
 		state.Status = "ok"
-		state.Error = ""
 		state.Count = len(rows)
 		return rows, state
 	}
 	return nil, state
 }
+
 func resolveAccountDirectory(parent context.Context, sa *storedAuth, force bool) directoryResult {
 	result := directoryResult{Status: "failed", Models: []directoryModel{}, Sources: []directorySource{}}
 	raw, err := storedAuthJSON(sa)

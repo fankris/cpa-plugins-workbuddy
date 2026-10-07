@@ -60,6 +60,10 @@ def callback(ctx,method,raw,size,out):
     else:raise AssertionError('Unexpected billing URL '+url)
     return respond(out,{'StatusCode':200,'Headers':{},'Body':encode({'code':0,'data':data})})
    if method=='host.http.do' and mode.startswith('models'):
+    if mode=='models-manager':
+     assert request['request']['url'].startswith('https://www.workbuddy.ai/')
+     if '/v2/enterprises/' in request['request']['url']:return respond(out,{'StatusCode':200,'Body':encode({'code':404})})
+     return respond(out,{'StatusCode':200,'Body':encode({'code':'0','data':{'models':[{'id':'manager-global-model'}]}})})
     if mode=='models-failed':return respond(out,{'StatusCode':403,'Headers':{},'Body':encode(b'discovery denied')})
     return respond(out,{'StatusCode':200,'Headers':{},'Body':encode({'code':0,'data':{'models':[{'id':'glm-5.2','name':'GLM','contextWindow':128000,'disabled':False}]}})})
    if method=='host.http.do':return respond(out,{'StatusCode':200,'Headers':{},'Body':encode({'code':0,'data':{'accessToken':'new-fixture-only'}})})
@@ -137,6 +141,17 @@ body=json.loads(base64.b64decode(result['result']['Body']));assert body['status'
 assert all(v['origin']=='dynamic' for m in body['models'] for v in m['variants']),body
 assert len({m['id'] for m in body['models']})==len(body['models'])
 checks.append('compiled model hub selects one account per channel, propagates callback scope and returns unique IDs with provenance')
+previous_storage=storage
+storage={'auth':{'accessToken':'manager-opaque-fixture','realm':'global'},'account':{'uid':'manager-fixture'}}
+mode='models-manager';scope='manager-realm-abi';req['host_callback_id']=scope
+rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
+body=json.loads(base64.b64decode(result['result']['Body']))
+assert body['sources'][1]['status']=='ok' and body['models'][0]['id']=='manager-global-model',body
+assert len(body['sources'][1]['endpoints'][0]['attempts'])==2,body
+assert 'manager-opaque-fixture' not in json.dumps(body)
+checks.append('compiled Manager auth.realm flows to global-only host requests; business endpoint fallback and string-code response are accepted without token exposure')
+storage=previous_storage
+
 
 mode='billing';scope=''
 # Background billing operations are owned by the plugin lifecycle, without an executor callback.

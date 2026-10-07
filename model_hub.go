@@ -20,6 +20,7 @@ type hubAccount struct {
 	Name      string `json:"name"`
 	Selected  bool   `json:"selected"`
 	Available bool   `json:"available"`
+	Reason    string `json:"reason,omitempty"`
 }
 type hubSource struct {
 	Channel   string            `json:"channel"`
@@ -57,6 +58,22 @@ type hubCredential struct {
 	Available bool
 }
 
+// Known expiry is a credential check, not an entitlement or routing decision.
+func hubAccountReason(disabled bool, token string, expires int64, now time.Time) string {
+	if disabled {
+		return "disabled"
+	}
+	if strings.TrimSpace(token) == "" {
+		return "no_token"
+	}
+	if expires > 1_000_000_000_000 {
+		expires /= 1000
+	}
+	if expires > 0 && expires <= now.Unix() {
+		return "expired"
+	}
+	return ""
+}
 func chooseHubAccount(accounts []hubAccount, requested string) (hubAccount, string) {
 	if requested != "" {
 		for _, a := range accounts {
@@ -192,7 +209,8 @@ func handleModelHub(req pluginapi.ManagementRequest, parent context.Context, for
 		}
 		token, _ := extractAccessToken(raw)
 		channel := serviceRealmForStorage(raw, token)
-		available := !file.Disabled && token != ""
+		reason := hubAccountReason(file.Disabled, token, sa.Auth.ExpiresAt, time.Now())
+		available := reason == ""
 		name := sa.Account.Nickname
 		if name == "" {
 			name = file.Name
@@ -200,7 +218,7 @@ func handleModelHub(req pluginapi.ManagementRequest, parent context.Context, for
 		credentials[file.AuthIndex] = hubCredential{File: file, Auth: sa, Channel: channel, Available: available}
 		for i := range sources {
 			if sources[i].Channel == channel {
-				sources[i].Accounts = append(sources[i].Accounts, hubAccount{ID: file.AuthIndex, Name: name, Selected: active != "" && active == file.ID, Available: available})
+				sources[i].Accounts = append(sources[i].Accounts, hubAccount{ID: file.AuthIndex, Name: name, Selected: active != "" && active == file.ID, Available: available, Reason: reason})
 			}
 		}
 	}
@@ -211,6 +229,9 @@ func handleModelHub(req pluginapi.ManagementRequest, parent context.Context, for
 		sources[i].Basis = basis
 		if a.ID == "" {
 			sources[i].Status = basis
+			if basis == "no_account" && len(sources[i].Accounts) > 0 {
+				sources[i].Status = "unavailable"
+			}
 			continue
 		}
 		sources[i].Account = a.ID

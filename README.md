@@ -1,10 +1,12 @@
 # WorkBuddy extension for CPA
 
-**Current source: `v8.0.15-2.0.0-rebuild.19` · 2026-10-06.** CPA is the host and authority. WorkBuddy Manager is a selective workflow reference, not a standalone architecture to transplant.
+**Current source: `v8.0.15-2.0.0-rebuild.20` · 2026-10-07.** CPA is the host and authority. WorkBuddy Manager is a selective workflow reference, not a standalone architecture to transplant.
 
 CPA8.0.15 SDK, ABI1/schema6. Original provider/auth identity, WorkBuddy menu and `/panel` are preserved. One latest combined ZIP contains source, Linux amd64 plugin, illustrated offline HTML, licenses and checksums.
 
 ## This iteration
+
+Fix Manager auth.realm preservation, expired directory source selection, envelope and candidate path compatibility. Show per-channel failures and sanitized request diagnostics. Real-account recovery is not yet verified.
 
 Unified model hub: one observational source account per channel, all fetched and explicitly custom-defined models, exact-ID aggregation, independent provenance/channel badges and per-source metadata. Changing directory sources never selects the CPA routing account. Native model configuration remains available within details with confirmed readback.
 
@@ -12,7 +14,7 @@ Preserved from iteration18: Remove the Results workspace and its history/filter/
 
 Five workspaces: **Dashboard, Accounts, Models, Tasks, Settings**. Connection information reuses the account read; it adds no polling. The SDK value is the build target, not a measured host version. v8/v0 is the compatibility range, not proof that both routes work.
 
-See [Chinese guide](README_CN.md), [iteration19](docs/ITERATION-19.md), [validation](docs/VALIDATION-19.json) and [ownership](docs/FEATURE-MATRIX.md).
+See [Chinese guide](README_CN.md), [iteration20](docs/ITERATION-20.md), [validation](docs/VALIDATION-20.json) and [ownership](docs/FEATURE-MATRIX.md).
 
 ## Preserved behavior
 

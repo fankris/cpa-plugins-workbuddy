@@ -530,15 +530,17 @@ func serviceRealmForStorage(raw []byte, accessToken string) string {
 		Auth struct {
 			Domain string `json:"domain"`
 			Region string `json:"region"`
+			Realm  string `json:"realm"`
 		} `json:"auth"`
 		Domain string `json:"domain"`
 		Region string `json:"region"`
+		Realm  string `json:"realm"`
 	}
 	if err := json.Unmarshal(raw, &probe); err == nil {
-		if service := realmFromRegionDomain(probe.Auth.Region, probe.Auth.Domain); service != "" {
+		if service := realmFromRegionDomain(firstNonEmptyTrimmed(probe.Auth.Region, probe.Auth.Realm), probe.Auth.Domain); service != "" {
 			return service
 		}
-		if service := realmFromRegionDomain(probe.Region, probe.Domain); service != "" {
+		if service := realmFromRegionDomain(firstNonEmptyTrimmed(probe.Region, probe.Realm), probe.Domain); service != "" {
 			return service
 		}
 	}
