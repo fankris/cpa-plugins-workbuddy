@@ -134,7 +134,7 @@ const wd={module:{exports:{}},exports:{}};wd.exports=wd.module.exports;vm.runInN
 test('22 channel identity never derives from nickname',()=>{assert.equal(data22.accountService({nickname:'CN',region:'intl'}),'intl');assert.equal(data22.accountService({region:'intl',service:'global'}),'intl');assert.equal(data22.accountService({service:'intl'}),'intl')});
 test('22 missing runtime boolean is unknown, not disabled',()=>{assert.equal(data22.settingState({checkin_auto:false},{},'checkin_auto'),'unknown');assert.equal(data22.settingState({checkin_auto:false},{checkin_auto:'false'},'checkin_auto'),'unknown');assert.equal(data22.settingState({checkin_auto:false},{checkin_auto:false},'checkin_auto'),'matches');assert.equal(data22.settingState({checkin_auto:true},{checkin_auto:false},'checkin_auto'),'differs')});
 test('22 scoped credit merge preserves all identities and routing',()=>{const a=[{auth_index:'a',disabled:true,selected:true},{auth_index:'b',credits:{total_remain:7}}];const r=data22.mergeCreditRows(a,[{auth_index:'a',credits:{total_remain:9},disabled:false,selected:false}]);assert.equal(r.length,2);assert.equal(r[0].disabled,true);assert.equal(r[0].selected,true);assert.equal(r[1],a[1]);assert.equal(a[0].credits,undefined)});
-test('22 credit failures are data errors not empty successful snapshots',()=>{const r=data22.mergeCreditRows([{auth_index:'a',credits:{total_remain:9}}],[{auth_index:'a',error:'HTTP 500'}]);assert.equal(r[0].credits.total_remain,9);assert.equal(r[0].credit_read_state,'failed');assert.equal(r[0].data_error,'HTTP 500');assert.throws(()=>data22.mergeCreditRows([],{}))});
+test('22 credit failures are data errors not empty successful snapshots',()=>{const r=data22.mergeCreditRows([{auth_index:'a',credits:{total_remain:9}}],[{auth_index:'a',error:'HTTP 500'}]);assert.equal(r[0].credits,undefined);assert.equal(r[0].data_error,'HTTP 500');assert.throws(()=>data22.mergeCreditRows([],{}))});
 
 test('23 only two hub regions; old WB selection migrates without route mutation',()=>{assert.equal(hub.hubChannels.join(','),'cn,intl');assert.equal(hub.hubSourceSelection({global:'wb',cn:'a'}).intl,'wb');assert.equal(hub.hubSourceSelection({global:'wb',intl:'cb'}).intl,'cb');assert.equal(data22.accountInChannel({region:'intl',service:'global'},'intl'),true);assert.equal(data22.accountInChannel({region:'intl',service:'intl'},'intl'),true)});
 test('24 explicit server capability takes precedence over region',()=>{assert.equal(data22.businessSupported({region:'cn',capabilities:{tasks:{supported:false}}},'tasks'),false);assert.equal(data22.businessSupported({region:'cn',capabilities:{tasks:{supported:'true'}}},'tasks'),false);assert.equal(data22.businessSupported({region:'cn',capabilities:{}},'tasks'),false)});
@@ -163,64 +163,3 @@ test('26 provenance and parameter technical labels stay invariant in four locale
 test('27 readable type scale replaces micro-font declarations across all workspaces',()=>{const css=fs.readFileSync('frontend/src/styles.css','utf8');for(const m of css.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)){const size=Number(m[1]);assert.ok(size===0||size>=12,m[0])}for(const token of ['--text-meta:12px','--text-small:13px','--text-ui:14px','--text-body:15px','--text-title:16px'])assert.ok(css.includes(token),token)});
 test('27 mobile account pagination uses the CSS row metric instead of obsolete 118px cards',()=>{const src=fs.readFileSync('frontend/src/App.tsx','utf8');assert.ok(src.includes("getPropertyValue('--account-row-min')"));assert.ok(src.includes('Math.ceil(node.clientHeight/'));assert.ok(!src.includes('node.clientHeight/118'))});
 test('27 settings retain runtime evidence and explicitly confirmed maintenance after layout regrouping',()=>{const src=fs.readFileSync('frontend/src/secondary-pages.tsx','utf8');for(const term of ["group('businessAutomation',['checkin_auto','travel_auto'])","group('accountMaintenance',['lifecycle_auto','token_keepalive'])",'onClick={onMaintain}','validTravelRun(runtime?.last_travel_run)','settings-column'])assert.ok(src.includes(term),term)});
-
-// rebuild28: conservative operation contracts and recoverable read-only polling.
-for(const [label,input,want] of [
- ['empty object',{},'unconfirmed'],['unknown status',{status:'unknown'},'unconfirmed'],
- ['unconfirmed child',{results:[null]},'unconfirmed'],['pending child',{results:[{status:'running'}]},'pending'],
- ['canceled child',{results:[{status:'canceled'}]},'canceled'],['uncertain takes precedence',{success:false,error:'offline',uncertain:true},'unconfirmed'],
- ['mixed uncertainty',{results:[{ok:true},{uncertain:true,error:'offline'}]},'unconfirmed'],
- ['native acknowledged status',{status:'ok'},'success'],['completed run',{status:'succeeded'},'success'],
- ['empty aggregate',{results:[]},'unconfirmed'],['explicit no-op aggregate',{ok:true,results:[]},'success'],
- ['mixed cancel',{results:[{ok:true},{status:'canceled'}]},'partial'],
-])test('28 outcome: '+label,()=>assert.equal(outcome(input),want));
-test('28 bulk catch retains uncertain evidence',()=>{const row=simple.module.exports.failedOperation('a',{uncertain:true,code:0},'outcomeUnknown');assert.equal(row.uncertain,true);assert.equal(outcome({results:[row]}),'unconfirmed')});
-test('28 maintenance validates rows and lifecycle errors',()=>{const fn=simple.module.exports.maintenanceOutcome;assert.equal(fn({}).status,'unconfirmed');assert.equal(fn({accounts:[{}]}).status,'unconfirmed');assert.equal(fn({accounts:[],lifecycle:[{error:'offline'}]}).status,'partial');assert.equal(fn({accounts:[]}).status,'success')});
-test('28 empty ack only allowed for known native 204 contracts',async()=>{
- const a=isolatedAPI(async()=>({ok:true,status:204,text:async()=>''}));
- assert.equal((await a.request('/credentials/status','PATCH',{},true)).ok,true);
- assert.equal((await a.request('/credentials/refresh','POST',{},true)).ok,true);
- await assert.rejects(a.request('/tasks/claim','POST',{}),e=>e.uncertain);
- const b=isolatedAPI(async()=>({ok:true,status:200,text:async()=>''}));
- await assert.rejects(b.request('/credentials/status','PATCH',{},true),e=>e.uncertain);
-});
-test('28 native 204 config still requires authoritative readback',async()=>{
- let config={checkin_auto:true},writes=0;
- const a=isolatedAPI(async(_u,o)=>{if(o.method==='PUT'){writes++;config=JSON.parse(o.body);return{ok:true,status:204,text:async()=>''}}return response(config)});
- assert.equal((await a.patchConfig({checkin_auto:false})).checkin_auto,false);assert.equal(writes,1);
-});
-test('28 backend mutation uncertainty and message are preserved',async()=>{
- const a=isolatedAPI(async()=>response({success:false,uncertain:true,message:'transport ended'}));
- await assert.rejects(a.request('/trial','POST',{}),e=>e.uncertain&&e.message==='outcomeUnknown');
- const b=isolatedAPI(async()=>response({success:false,message:'not eligible',business_code:14052}));
- await assert.rejects(b.request('/trial','POST',{}),e=>!e.uncertain&&e.message==='not eligible');
-});
-test('28 skipped checkin is a known non-error outcome',async()=>{const a=isolatedAPI(async()=>response({success:false,skipped:true,reason:'inactive'}));assert.equal(outcome(await a.request('/checkin','POST',{})),'skipped')});
-const pollingModule={module:{exports:{}},exports:{}};pollingModule.exports=pollingModule.module.exports;vm.runInNewContext(await compile('frontend/src/task-polling.ts'),pollingModule);
-function pollFixture(read){
- const timers=new Map(),delays=[],states=[],data=[],errors=[];let id=0;
- const clock={set:(f,ms)=>{timers.set(++id,f);delays.push(ms);return id},clear:id=>timers.delete(id),now:()=>new Date().toISOString(),random:()=>0.5};
- const poll=pollingModule.module.exports.startTaskPolling({read,runID:'r',account:'a',clock,onData:r=>data.push(r),onError:e=>errors.push(e),onState:s=>states.push(s)});
- return{poll,timers,delays,states,data,errors,tick:async()=>{const next=timers.entries().next().value;if(next){timers.delete(next[0]);next[1]();await new Promise(setImmediate)}}};
-}
-test('28 polling recovers transient failure without restarting task',async()=>{
- let reads=0;const f=pollFixture(async()=>{if(++reads===2)throw {code:500};return{run_id:'r',auth_index:'a',status:reads===3?'succeeded':'running'}});
- await f.tick();await f.tick();assert.equal(f.states.at(-1).retrying,true);await f.tick();assert.equal(f.data.at(-1).status,'succeeded');assert.equal(f.timers.size,0);assert.equal(reads,3);assert.equal(f.states.at(-1).retrying,false);
-});
-test('28 polling uses bounded retries and can explicitly resume',async()=>{
- let reads=0;const f=pollFixture(async()=>{reads++;throw {code:500}});
- for(let i=0;i<6;i++)await f.tick();assert.equal(reads,6);assert.equal(f.timers.size,0);assert.equal(f.states.at(-1).stopped,true);
- f.poll.retry();await f.tick();assert.equal(reads,7);f.poll.stop();assert.equal(f.timers.size,0);
-});
-for(const code of[401,403,404,410])test('28 polling stops terminal HTTP '+code,async()=>{let calls=0;const f=pollFixture(async()=>{calls++;throw{code}});await f.tick();f.poll.retry();await f.tick();assert.equal(calls,1);assert.equal(f.timers.size,0)});
-test('28 stopped polling ignores a late response',async()=>{
- let release;const f=pollFixture(()=>new Promise(r=>release=r));await f.tick();f.poll.stop();release({run_id:'r',auth_index:'a',status:'succeeded'});await new Promise(setImmediate);assert.equal(f.data.length,0);assert.equal(f.timers.size,0);
-});
-test('28 polling rejects a response for another account or run',async()=>{const f=pollFixture(async()=>({run_id:'other',auth_index:'b',status:'succeeded'}));await f.tick();assert.equal(f.data.length,0);assert.equal(f.states.at(-1).retrying,true);f.poll.stop()});
-test('28 manual task status also validates account, run and terminal schema',()=>{const valid=pollingModule.module.exports.validTaskStatus;assert.equal(valid({auth_index:'a',status:'idle'},'a'),true);assert.equal(valid({auth_index:'a',status:'idle'},'a','run'),false);assert.equal(valid({auth_index:'b',run_id:'r',status:'succeeded'},'a'),false);assert.equal(valid({auth_index:'a',status:'succeeded'},'a'),false);assert.equal(valid({auth_index:'a',run_id:'r',status:'succeeded'},'a'),true)});
-test('28 unknown status is not rescued by a generic ok flag',()=>assert.equal(outcome({ok:true,status:'future-unknown'}),'unconfirmed'));
-test('28 native refresh does not manufacture its own success acknowledgement',()=>{const app=fs.readFileSync('frontend/src/App.tsx','utf8');assert.ok(app.includes("if(action==='keepalive')return request('/credentials/refresh'"));assert.ok(!app.includes("operation:'host credential refresh'"))});
-
-test('29 pre-aborted credit GET never sends HTTP',async()=>{api.setKey('fixture-key');let calls=0;env.fetch=async()=>{calls++;throw Error('unexpected')};const c=new AbortController();c.abort();await assert.rejects(api.request('/credits','GET',undefined,false,{signal:c.signal}),e=>e.message==='readCanceled');assert.equal(calls,0)});
-test('29 credit GET timeout aborts fetch and distinguishes deadline',async()=>{api.setKey('fixture-key');env.fetch=(_url,opts)=>new Promise((resolve,reject)=>opts.signal.addEventListener('abort',()=>reject(Error('aborted'))));await assert.rejects(api.request('/credits','GET',undefined,false,{timeoutMs:10}),e=>e.message==='readTimedOut'&&!e.uncertain)});
-test('29 external cancel applies to reads, not confirmed writes',async()=>{api.setKey('fixture-key');const c=new AbortController();c.abort();let calls=0;env.fetch=async(_url,opts)=>{calls++;assert.equal(opts.signal.aborted,false);return{ok:true,status:200,text:async()=>'{"ok":true}'}};const r=await api.request('/checkin','POST',{},false,{signal:c.signal});assert.equal(r.ok,true);assert.equal(calls,1)});

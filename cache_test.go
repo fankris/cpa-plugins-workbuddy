@@ -32,7 +32,7 @@ func billingStub(t *testing.T, creditsRemain int64) (*httptest.Server, *int32) {
 		switch {
 		case r.URL.Path == "/v2/billing/meter/checkin-activity-status":
 			_, _ = w.Write([]byte(`{"code":0,"msg":"OK","data":{"checked_in":true,"today_checked_in":true}}`))
-		case r.URL.Path == "/v2/billing/meter/get-user-resource" || r.URL.Path == "/billing/meter/get-user-resource":
+		case r.URL.Path == "/v2/billing/meter/get-user-resource":
 			_, _ = w.Write([]byte(`{"code":0,"msg":"OK","data":{"Response":{"Data":{"TotalCount":1,"Accounts":[{"CapacityRemain":` + itoa(creditsRemain) + `,"CapacityUsed":1,"CapacitySize":` + itoa(creditsRemain+1) + `,"PackageName":"Free"}]}}}}`))
 		default:
 			_, _ = w.Write([]byte(`{"code":0,"msg":"OK","data":{"payment_type":"Free"}}`))
@@ -75,7 +75,7 @@ func TestAccountCacheServesFreshEntryWithoutUpstream(t *testing.T) {
 	// Prime the cache directly (bypassing upstream) with a fresh entry.
 	accountCache.Store("auth-1", &accountCacheEntry{
 		plan:    "Free",
-		credits: &creditsSummary{TotalRemain: 7, TotalUsed: 1, TotalSize: 8, FetchedAt: time.Now().UTC().Format(time.RFC3339Nano)},
+		credits: &creditsSummary{TotalRemain: 7, TotalUsed: 1, TotalSize: 8},
 		fetched: time.Now(),
 	})
 	before := atomic.LoadInt32(calls)

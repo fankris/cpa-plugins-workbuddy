@@ -1,16 +1,3 @@
-# rebuild29 — 2026-10-08
-
-Identity-first /accounts; progressive credit queue; max 4-row API pages with snapshot guard; 12s upstream / 15s browser / 120s queue budgets; retained stale snapshots are explicitly labeled. See docs/ITERATION-29.md. Production unchanged.
-
-# rebuild28 — Reliability / 2026-10-07
-
-- Preserve all disabled credentials; automatic re-enable is retired in favor of explicit native CPA enable.
-- Gate lifecycle on fresh successful credit evidence; unify per-field CAS publication and request generations.
-- Preserve uncertain mutation outcomes, scope empty native acknowledgements, and recover read-only task polling.
-- Billing retries use a read-only allowlist; no automatic check-in/trial replay.
-- Current official CPA/CPAMC empty-host integration restored; 636 Go race + 172 Node + 179 fixture browser checks.
-- See docs/ITERATION-28.md for changed behavior and untested real-account/scale/accessibility scope.
-
 # rebuild27 — readable typography and all-workspace layout
 
 Shared 12px minimum secondary text, 14–16px primary content, compact model records, content-sized task cards, independent settings columns and responsive account pagination. See docs/ITERATION-27.md and docs/READABILITY-27.json.

@@ -43,43 +43,27 @@ async function readPluginConfig(){
  })();
  configProbe={identity,job};try{return await job}finally{if(configProbe?.job===job)configProbe=null}
 }
-export async function request<T=any>(route:string,method='GET',body?:unknown,native=false,readOptions?:{signal?:AbortSignal;timeoutMs?:number}):Promise<T>{
+export async function request<T=any>(route:string,method='GET',body?:unknown,native=false):Promise<T>{
  if(native&&route===configRoute){
   if(method==='GET')return readPluginConfig();
   const identity=getKey();if(configTransport?.identity!==identity)await readPluginConfig();
   if(getKey()!==identity||configTransport?.identity!==identity)throw new APIError(409,'connectionChanged');
   return send(configTransport!.url,method,body);
  }
- return send((native?endpoints.native:endpoints.plugin)+route,method,body,readOptions);
+ return send((native?endpoints.native:endpoints.plugin)+route,method,body);
 }
-async function send<T=any>(url:string,method='GET',body?:unknown,readOptions?:{signal?:AbortSignal;timeoutMs?:number}):Promise<T>{
+async function send<T=any>(url:string,method='GET',body?:unknown):Promise<T>{
  const key=getKey(); if(!key)throw new APIError(401,'authRequired');
- const controller=new AbortController(),abort=()=>controller.abort();
- const signal=method==='GET'?readOptions?.signal:undefined;
- const timer=setTimeout(abort,method==='GET'?(readOptions?.timeoutMs??30000):30000);
- signal?.addEventListener('abort',abort,{once:true});
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
  try{
-  if(signal?.aborted)throw new APIError(0,'readCanceled');
   const response=await fetch(url,{method,headers:{Authorization:'Bearer '+key,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal,credentials:'same-origin',cache:'no-store',redirect:'error'});
   if(response.status===401){clearManagementKey(key);throw new APIError(401,'authRequired')}
-  const raw=await response.text();let data:any;
-  // Empty acknowledgement is allowed ONLY for known CPA native operations.
-  // Plugin mutations require business evidence; a bare 2xx is not that evidence.
-  const emptyNativeAck=response.status===204&&(
-   method==='PATCH'&&url===endpoints.native+'/credentials/status'||
-   method==='POST'&&url===endpoints.native+'/credentials/refresh'||
-   method==='PUT'&&(url===endpoints.native+configRoute||url===endpoints.plugin+'/config'));
-  try{data=raw.trim()?JSON.parse(raw):emptyNativeAck?{ok:true}:null;if(!record(data))throw Error('invalid JSON shape')}catch{throw new APIError(response.status,method==='GET'?'invalidResponse':'outcomeUnknown',method!=='GET')}
+  const raw=await response.text();let data:any={};try{if(!raw.trim()&&method==='GET')throw Error('empty response');data=raw?JSON.parse(raw):{};if(!record(data))throw Error('invalid JSON shape')}catch{throw new APIError(response.status,method==='GET'?'invalidResponse':'outcomeUnknown',method!=='GET')}
   const terminalTask=method==='GET'&&url.startsWith(endpoints.plugin+'/tasks/status?')&&typeof data.run_id==='string'&&['failed','canceled','succeeded','running'].includes(data.status);
-  const skipped=data.skipped===true&&['inactive','global','intl','unsupported_region'].includes(data.reason);
-  if(!terminalTask&&(!response.ok||data.error||data.success===false&&!data.already_claimed&&!skipped||data.ok===false||data.uncertain===true)){
-   const uncertain=data.uncertain===true||method!=='GET'&&response.status>=500;
-   const message=uncertain?'outcomeUnknown':data.code==='unsupported_region'?'unsupported_region':typeof data.error==='string'?String(redact(data.error)):data.error?.message?String(redact(data.error.message)):typeof data.message==='string'?String(redact(data.message)):'requestFailed';
-   throw new APIError(response.status,message,uncertain);
-  }
+  if(!terminalTask&&(!response.ok||data.error||data.success===false&&!data.already_claimed||data.ok===false))throw new APIError(response.status,data.code==='unsupported_region'?'unsupported_region':typeof data.error==='string'?String(redact(data.error)):data.error?.message?String(redact(data.error.message)):'requestFailed');
   return data;
- }catch(error){if(error instanceof APIError)throw error;throw new APIError(0,method==='GET'?(signal?.aborted?'readCanceled':controller.signal.aborted?'readTimedOut':'networkError'):'outcomeUnknown',method!=='GET')}
- finally{clearTimeout(timer);signal?.removeEventListener('abort',abort)}
+ }catch(error){if(error instanceof APIError)throw error;throw new APIError(0,method==='GET'?'networkError':'outcomeUnknown',method!=='GET')}
+ finally{clearTimeout(timer)}
 }
 // CPA owns persistence. This is only a per-page serialization queue, not
 // another configuration store or a cross-editor transaction mechanism.

@@ -567,8 +567,3 @@ body{font-size:var(--text-body);line-height:1.5}
  .hub-table.models-table td.hub-row-action{grid-column:3;grid-row:1/4;align-self:center;justify-self:end;padding:0}.hub-table .hub-identity .hub-row-origins{flex-basis:100%}
 }
 @media(min-width:1440px){.hub-table.models-table tbody{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}}
-
-/* Progressive reads stay in the business page; no global blocking overlay. */
-.credit-loading-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:13px;margin-bottom:10px}
-.credit-loading-bar .ghost{margin-left:auto}.credit-read-state{font-size:12px;line-height:1.4;display:block}.credit-read-state.failed,.credit-read-state.stale{color:var(--warning,#a46c08)}
-@media(max-width:600px){.credit-loading-bar{gap:6px 10px;padding:8px 10px}.credit-loading-bar>span:nth-child(2){flex:1 1 180px}}

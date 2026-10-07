@@ -177,9 +177,12 @@ mode='billing';scope=''
 req={'Method':'GET','Path':'/v0/management/plugins/workbuddy/accounts'}
 rc,result=invoke('management.handle',req);assert rc==0 and result['ok'],result
 body=json.loads(base64.b64decode(result['result']['Body']))
-account=body['accounts'][0];assert not account.get('credits') and body['credits_loading']=='progressive',account
+account=body['accounts'][0];assert account.get('credits',{}).get('total_remain')==75 and account['plan']=='Pro',account
+assert body['summary']['total_remain']==75,body['summary']
+before=calls.count('host.http.do');rc,result=invoke('management.handle',req)
+assert calls.count('host.http.do')==before,'Warm dashboard repeated upstream billing'
 assert 'host.auth.save' not in calls,'Read-only dashboard wrote credentials'
-checks.append('compiled cold dashboard returns identities without billing; progressive contract declared')
+checks.append('compiled cold dashboard fetches and aggregates actual mock billing through CPA HTTP; warm read uses cache without credential writes')
 for query in ({'auth_index':['fixture-index']},{}):
  before_saves=calls.count('host.auth.save')
  rc,result=invoke('management.handle',{'Method':'GET','Path':'/v0/management/plugins/workbuddy/credits','Query':query})

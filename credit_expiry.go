@@ -94,7 +94,7 @@ func pickExpiringCredits(candidates []pluginapi.SchedulerAuthCandidate, now time
 			continue
 		}
 		entry, ok := v.(*accountCacheEntry)
-		if !ok || !creditSnapshotFresh(entry, now, 5*time.Minute) || isCreditsExhausted(entry.credits) {
+		if !ok || entry.credits == nil || len(entry.errs) > 0 || isCreditsExhausted(entry.credits) {
 			continue
 		}
 		fetched, e := time.Parse(time.RFC3339, entry.credits.FetchedAt)

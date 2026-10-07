@@ -1,5 +1,5 @@
 // lifecycle.go implements credit-based auth lifecycle for workbuddy:
-//   - Confirmed CN exhaustion → disable; re-enable only through explicit CPA operation
+//   - CN exhausted → disable auth record, re-enable after check-in restores credits
 //   - Legacy WorkBuddy-service accounts retain exhausted auth records disabled
 //   - Unknown credits → no-op (never mis-kill)
 //   - Hard credit errors from executor → recheck credits then apply policy
@@ -261,11 +261,30 @@ func disableAuth(authIndex, authID string, sa *storedAuth, cr *creditsSummary, r
 	return nil
 }
 
-// reenableAuth is intentionally a no-write compatibility guard. CPA does not
-// expose a reliable user-intent revision/CAS here. All re-enables are explicit
-// native CPA credential operations, even after plugin-driven exhaustion.
+// reenableAuth writes disabled:false when CN has credits again.
 func reenableAuth(authIndex, authID string, sa *storedAuth, cr *creditsSummary) error {
-	return fmt.Errorf("automatic re-enable is disabled; enable the credential explicitly in CPA")
+	mu := checkinLockFor(authIndex)
+	mu.Lock()
+	defer mu.Unlock()
+
+	if !shouldReenableCN(true, cr) {
+		return nil
+	}
+	note := displayNote(sa, cr, false)
+	if lifecycleStateUnchanged(authID, false, note) {
+		return nil
+	}
+	phys, err := hostAuthGetPhysical(authIndex)
+	if err != nil {
+		return err
+	}
+	name := authFileNameForPhysical(sa, phys)
+	if err := saveAuthState(name, phys.JSON, sa, false, note, nil); err != nil {
+		return err
+	}
+	rememberLifecycleState(authID, false, note)
+	accountCache.Delete(authID)
+	return nil
 }
 
 // deleteAuth retains an exhausted legacy WorkBuddy-service auth record while
@@ -359,26 +378,41 @@ func reconcileOneAccount(authIndex, authID string, force bool) (action lifecycle
 		disabled = phys.Disabled
 	}
 
-	// Never alter an already disabled credential, including notes. Ownership
-	// cannot be inferred from a balance or from a previous plugin-written note.
-	if disabled {
-		return lifecycleNone, nil
-	}
+	// Credits: use force path via fetchUserResource always when force,
+	// else try cache first.
 	var cr *creditsSummary
 	if !force {
-		cr = trustedCachedCredits(authID, time.Now(), accountCacheTTL)
+		if v, ok := accountCache.Load(authID); ok {
+			if e, ok2 := v.(*accountCacheEntry); ok2 && e.credits != nil && time.Since(e.fetched) < accountCacheTTL {
+				cr = e.credits
+			}
+		}
 	}
 	if cr == nil {
-		_, _, _, errs := cachedAccountDetails(authID, sa, true)
-		if hasCreditError(errs) {
-			return lifecycleNone, fmt.Errorf("credits refresh unconfirmed; account state unchanged")
-		}
-		cr = trustedCachedCredits(authID, time.Now(), accountCacheTTL)
+		// Route credits fetch through cachedAccountDetails so singleflight
+		// serializes concurrent writers for the same authID (P0-2 fix: the
+		// previous Load→Store sequence here had a check-then-act window
+		// where a concurrent dashboard cachedAccountDetails write could
+		// overwrite our merge with newer plan/checkin values).
+		_, _, cr2, _ := cachedAccountDetails(authID, sa, true)
+		cr = cr2
 		if cr == nil {
 			return lifecycleNone, nil
 		}
 	}
+
 	region := credentialOriginService(sa)
+	if region == regionCN && disabled {
+		if shouldReenableCN(true, cr) {
+			if err := reenableAuth(authIndex, authID, sa, cr); err != nil {
+				return lifecycleReenable, err
+			}
+			return lifecycleReenable, nil
+		}
+		// still disabled: refresh note
+		_ = syncAuthNote(authIndex, authID, sa, cr, true)
+		return lifecycleNone, nil
+	}
 
 	act := lifecycleActionFor(region, cr)
 	switch act {
@@ -394,8 +428,8 @@ func reconcileOneAccount(authIndex, authID string, force bool) (action lifecycle
 	case lifecycleDisable:
 		return lifecycleDisable, disableAuth(authIndex, authID, sa, cr, "耗尽")
 	default:
-		// Healthy reads must not write disabled:false through a stale full record.
-		// CPA owns notes and manual status; there is no native CAS here.
+		// healthy: keep note fresh (throttled)
+		_ = syncAuthNote(authIndex, authID, sa, cr, false)
 		return lifecycleNone, nil
 	}
 }
@@ -525,8 +559,16 @@ func reconcileByUID(uid string, status int, body string) {
 // short TTL cache makes "used" look frozen while the user is burning credits.
 func invalidateAccountCredits(authID, authUID string) {
 	// Invalidate credits only — keep plan/checkin in cache.
-	invalidateCredits := invalidateCachedCredits
-
+	invalidateCredits := func(id string) {
+		if v, ok := accountCache.Load(id); ok {
+			if e, ok2 := v.(*accountCacheEntry); ok2 {
+				fresh := *e
+				fresh.credits = nil
+				fresh.fetched = time.Now()
+				accountCache.Store(id, &fresh)
+			}
+		}
+	}
 	if authID != "" {
 		invalidateCredits(authID)
 	}

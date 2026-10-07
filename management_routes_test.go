@@ -221,11 +221,9 @@ func TestManagementDashboardExposesAutomationSwitches(t *testing.T) {
 	}
 	accounts := out["accounts"].([]any)
 	account := accounts[0].(map[string]any)
-	if account["credits"] != nil || atomic.LoadInt32(calls) != 0 {
-		t.Fatalf("identity-first load must not call billing: %+v", account)
-	}
-	if out["credits_loading"] != "progressive" {
-		t.Fatal("missing progressive contract")
+	credits, _ := account["credits"].(map[string]any)
+	if credits["total_remain"] != float64(88) || account["plan"] != "Free" {
+		t.Fatalf("cold accounts load must fetch plugin billing details: %+v", account)
 	}
 	before := atomic.LoadInt32(calls)
 	managementCall(t, http.MethodGet, "/accounts", "")

@@ -1,7 +1,3 @@
-> Latest: **v8.0.15-2.0.0-rebuild.29** — identity-first account loading, bounded/cancelable credit reads. See [iteration 29](docs/ITERATION-29.md). `/credits` without `auth_index` is now paginated (max 4); do not treat a partial page as the full account pool.
-
-> rebuild28 behavior change: disabled credentials are never automatically re-enabled. After credit recovery, explicitly enable them through CPA. Confirmed fresh exhaustion can still disable credentials. See [release details](docs/ITERATION-28.md).
-
 # WorkBuddy extension for CPA
 
 **v8.0.15-2.0.0-rebuild.23 · 2026-10-07** — CPA8.0.15 SDK, ABI1/schema6. Original WorkBuddy identity, menu and `/panel` preserved.

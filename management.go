@@ -249,7 +249,7 @@ func handleManagement(raw []byte) ([]byte, error) {
 	}
 	switch {
 	case req.Method == http.MethodGet && path == base+"/accounts":
-		return okEnvelope(mgmtJSONResponse(http.StatusOK, buildDashboardEx(false, false)))
+		return okEnvelope(mgmtJSONResponse(http.StatusOK, buildDashboardEx(false, true)))
 	case req.Method == http.MethodPost && path == base+"/refresh":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, buildDashboardEx(true, true)))
 	case req.Method == http.MethodPost && path == base+"/checkin":
@@ -257,7 +257,7 @@ func handleManagement(raw []byte) ([]byte, error) {
 	case req.Method == http.MethodPost && path == base+"/checkin/config":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleCheckinConfig(req)))
 	case req.Method == http.MethodGet && path == base+"/credits":
-		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleCreditsQueryContext(modelsCtx, req)))
+		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleCreditsQuery(req)))
 	case req.Method == http.MethodPost && path == base+"/import":
 		return okEnvelope(mgmtJSONResponse(http.StatusOK, handleImportAuth(req)))
 	case req.Method == http.MethodGet && path == base+"/activation/status":

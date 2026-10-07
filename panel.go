@@ -126,8 +126,8 @@ func hostAuthRuntimeFor(authIndex string) *wbAccountRuntime {
 	return out
 }
 
-// Identity-first dashboard: GET uses only CPA/local snapshots. Explicit POST
-// maintenance retains its separate business semantics; UI credits are progressive.
+// Populate billing details inside the plugin; the current UI has no lazy-fetch loop.
+// Cache/singleflight prevent repeat upstream reads, with bounded account fan-out.
 func buildDashboardEx(force, fetchCredits bool) map[string]any {
 	if pluginQuiescing() {
 		return map[string]any{"error": errPluginQuiescing.Error()}
@@ -226,13 +226,16 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 				if isWorkBuddyService(sa) {
 					acct.TrialClaimed = hasTrialPack(cr)
 				}
+				// Keep note in sync (throttled); do not block dashboard on save errors.
+				if force {
+					_ = syncAuthNote(f.AuthIndex, f.ID, sa, cr, acct.Disabled)
+				}
 				acct.Error = strings.Join(errs, "; ")
 				acct.DataError = acct.Error
 			} else {
 				// Light load: use cached values if available, but don't fetch upstream.
 				if v, ok := accountCache.Load(f.ID); ok {
 					if e, ok2 := v.(*accountCacheEntry); ok2 {
-						acct.DataError = strings.Join(e.errs, "; ")
 						acct.Plan = e.plan
 						acct.Checkin = e.checkin
 						acct.Credits = e.credits
@@ -307,20 +310,17 @@ func buildDashboardEx(force, fetchCredits bool) map[string]any {
 		out[i].Selected = out[i].AuthID == activeID
 	}
 	resp := map[string]any{
-		"accounts":               out,
-		"credits_loading":        "progressive",
-		"credits_batch_limit":    creditsBatchLimit,
-		"credits_read_budget_ms": creditReadBudget.Milliseconds(),
-		"active_auth":            activeID,
-		"checkin_auto":           auto,
-		"lifecycle_auto":         lifecycleEnabled(),
-		"keepalive_auto":         keepaliveEnabled(),
-		"growth_auto":            growthAutoEnabled(),
-		"travel_auto":            travelAutoEnabled(),
-		"schedule":               []string{"09:00", "21:00"},
-		"server_time":            time.Now().Format("2006-01-02 15:04:05"),
-		"server_time_iso":        time.Now().UTC().Format(time.RFC3339),
-		"summary":                sum,
+		"accounts":        out,
+		"active_auth":     activeID,
+		"checkin_auto":    auto,
+		"lifecycle_auto":  lifecycleEnabled(),
+		"keepalive_auto":  keepaliveEnabled(),
+		"growth_auto":     growthAutoEnabled(),
+		"travel_auto":     travelAutoEnabled(),
+		"schedule":        []string{"09:00", "21:00"},
+		"server_time":     time.Now().Format("2006-01-02 15:04:05"),
+		"server_time_iso": time.Now().UTC().Format(time.RFC3339),
+		"summary":         sum,
 		// Provider-wide request terminal outcomes (succeeded/failed/rejected/
 		// canceled). Distinct from per-account credits: this is the only place
 		// the panel can see requests that arrived but were rejected before

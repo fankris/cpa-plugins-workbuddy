@@ -21,10 +21,10 @@ export function mergeCreditRows(accounts:Row[],rows:unknown):Row[]{
  if(!Array.isArray(rows)||rows.some(x=>!x||typeof x.auth_index!=='string'))throw Error('invalidResponse');
  const patches=new Map(rows.map(x=>[x.auth_index,x]));
  return accounts.map(a=>{const p=patches.get(a.auth_index);if(!p)return a;
-  if(p.error)return {...a,data_error:p.error,credit_read_state:'failed'};
-  if(!p.credits||typeof p.credits.total_remain!=='number')return {...a,data_error:'noQuota',credit_read_state:'failed'};
+  if(p.error)return {...a,credits:undefined,data_error:p.error};
+  if(!p.credits||typeof p.credits.total_remain!=='number')return {...a,credits:undefined,data_error:'noQuota'};
   // A credits response cannot overwrite identity, disabled status or routing selection.
-  return {...a,credits:p.credits,credit_read_state:'fresh',capabilities:p.capabilities??a.capabilities,trial_eligibility:p.trial_eligibility??a.trial_eligibility,plan:typeof p.plan==='string'?p.plan:a.plan,trial_claimed:typeof p.trial_claimed==='boolean'?p.trial_claimed:a.trial_claimed,exhausted:typeof p.exhausted==='boolean'?p.exhausted:a.exhausted,data_error:'',error:a.data_error?'':a.error};
+  return {...a,credits:p.credits,capabilities:p.capabilities??a.capabilities,trial_eligibility:p.trial_eligibility??a.trial_eligibility,plan:typeof p.plan==='string'?p.plan:a.plan,trial_claimed:typeof p.trial_claimed==='boolean'?p.trial_claimed:a.trial_claimed,exhausted:typeof p.exhausted==='boolean'?p.exhausted:a.exhausted,data_error:'',error:a.data_error?'':a.error};
  });
 }
 export function businessSupported(a:Row,feature:string):boolean {
