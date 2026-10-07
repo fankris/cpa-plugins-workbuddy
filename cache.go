@@ -6,17 +6,20 @@ package main
 
 import (
 	"sort"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // the failed field falls back to the previous value instead of being wiped.
 type accountCacheEntry struct {
-	checkin *checkinSummary
-	credits *creditsSummary
-	plan    string
-	fetched time.Time
-	errs    []string
+	checkin                         *checkinSummary
+	credits                         *creditsSummary
+	plan                            string
+	fetched                         time.Time
+	errs                            []string
+	creditsSeq, checkinSeq, planSeq uint64
 }
 
 var (
@@ -47,7 +50,7 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 	var prev *accountCacheEntry
 	if v, ok := accountCache.Load(authID); ok {
 		prev = v.(*accountCacheEntry)
-		if !force && time.Since(prev.fetched) < accountCacheTTL {
+		if !force && time.Since(prev.fetched) < accountCacheTTL && creditSnapshotFresh(prev, time.Now(), accountCacheTTL) {
 			// Return cached values. Do NOT mutate prev.credits here — concurrent
 			// goroutines (reconcileOneAccount) may read the same entry.
 			// FetchedAt is stamped at Store time; if it's empty (legacy entry),
@@ -62,7 +65,7 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 	// intentional: the flight window is short (~3 concurrent fetches), and
 	// skipping it would re-introduce the P0-2 race where concurrent writers
 	// overwrite each other's cache entries. The result a force caller gets
-	// is at most a few hundred ms old — fresh enough for lifecycle decisions.
+	// is still checked for age and credit errors before any lifecycle decision.
 	call := &accountDetailCall{done: make(chan struct{})}
 	actual, loaded := accountDetailFlight.LoadOrStore(authID, call)
 	if loaded {
@@ -72,7 +75,7 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 		// Re-read cache: fetcher already Stored; use whatever won the race.
 		if v, ok := accountCache.Load(authID); ok {
 			if e, ok2 := v.(*accountCacheEntry); ok2 {
-				return e.plan, supportedCheckinSnapshot(sa, e.checkin), e.credits, other.errs
+				return e.plan, supportedCheckinSnapshot(sa, e.checkin), e.credits, append([]string(nil), e.errs...)
 			}
 		}
 		return other.plan, other.ci, other.cr, other.errs
@@ -85,6 +88,7 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 		accountDetailFlight.Delete(authID)
 	}()
 
+	seq := nextAccountSnapshot()
 	var (
 		wg      sync.WaitGroup
 		errMu   sync.Mutex
@@ -117,30 +121,17 @@ func cachedAccountDetails(authID string, sa *storedAuth, force bool) (plan strin
 		}
 	}()
 	wg.Wait()
-	// Only freshly fetched credits get a new timestamp. Copy before stamping:
-	// published cache entries may still be read concurrently by the scheduler.
-	now := time.Now()
-	if cr != nil {
-		fresh := *cr
-		fresh.FetchedAt = now.UTC().Format(time.RFC3339)
-		cr = &fresh
-	}
-	// Stale-while-error: carry over previous values for fields that failed.
-	if prev != nil {
-		if ci == nil && supportsBusiness(sa, "checkin") {
-			ci = prev.checkin
-		}
-		if cr == nil {
-			cr = prev.credits
-		}
-		if plan == "" {
-			plan = prev.plan
-		}
-	}
-	accountCache.Store(authID, &accountCacheEntry{checkin: ci, credits: cr, plan: plan, fetched: now, errs: append([]string(nil), errList...)})
+	// Merge field-by-field against the current snapshot. An older request
+	// cannot overwrite a later request's field, even if it completes last.
+	entry := publishAccountSnapshot(authID, accountSnapshotPatch{
+		seq: seq, creditsSet: true, credits: cr, checkinSet: true, checkin: ci,
+		planSet: true, plan: plan, errors: errList,
+	})
+	plan, ci, cr, errs = entry.plan, supportedCheckinSnapshot(sa, entry.checkin), entry.credits, append([]string(nil), entry.errs...)
+
 	// Soft cap: if map is huge, drop oldest-looking entries beyond bound.
 	pruneAccountCacheSoftCap(accountCacheSoftCap)
-	return plan, ci, cr, errList
+	return plan, ci, cr, errs
 }
 
 // accountCacheSoftCap limits concurrent cache entries (auth churn / index thrash).
@@ -197,4 +188,114 @@ func supportedCheckinSnapshot(sa *storedAuth, ci *checkinSummary) *checkinSummar
 		return nil
 	}
 	return ci
+}
+
+// Request generations are allocated BEFORE I/O. CAS publishes immutable,
+// per-field snapshots; sync.Map alone would not prevent lost updates.
+var accountSnapshotSequence atomic.Uint64
+
+func nextAccountSnapshot() uint64 { return accountSnapshotSequence.Add(1) }
+
+type accountSnapshotPatch struct {
+	seq                                         uint64
+	creditsSet, checkinSet, planSet, invalidate bool
+	credits                                     *creditsSummary
+	checkin                                     *checkinSummary
+	plan                                        string
+	errors                                      []string
+}
+
+func publishAccountSnapshot(id string, p accountSnapshotPatch) *accountCacheEntry {
+	if p.seq == 0 {
+		p.seq = nextAccountSnapshot()
+	}
+	for {
+		old, exists := accountCache.Load(id)
+		n := &accountCacheEntry{}
+		if exists {
+			*n = *old.(*accountCacheEntry)
+			n.errs = append([]string(nil), n.errs...)
+		}
+		mergeErrors := func(field string) {
+			kept := make([]string, 0, len(n.errs)+len(p.errors))
+			for _, err := range n.errs {
+				if !strings.HasPrefix(err, field+":") {
+					kept = append(kept, err)
+				}
+			}
+			for _, err := range p.errors {
+				if strings.HasPrefix(err, field+":") {
+					kept = append(kept, err)
+				}
+			}
+			n.errs = kept
+		}
+		if p.creditsSet && p.seq >= n.creditsSeq {
+			n.creditsSeq = p.seq
+			mergeErrors("credits")
+			if p.invalidate {
+				n.credits = nil
+			} else if p.credits != nil {
+				cr := *p.credits
+				// The reader stamps acquisition time, never the cache merge time.
+				if cr.FetchedAt == "" {
+					cr.FetchedAt = time.Now().UTC().Format(time.RFC3339Nano)
+				}
+				n.credits = &cr
+			} else if !hasCreditError(n.errs) {
+				n.errs = append(n.errs, "credits: unavailable")
+			}
+		}
+		if p.checkinSet && p.seq >= n.checkinSeq {
+			n.checkinSeq = p.seq
+			mergeErrors("checkin")
+			if p.checkin != nil {
+				n.checkin = p.checkin
+			}
+		}
+		if p.planSet && p.seq >= n.planSeq {
+			n.planSeq = p.seq
+			mergeErrors("plan")
+			if p.plan != "" {
+				n.plan = p.plan
+			}
+		}
+		n.fetched = time.Now() // last cache update, NOT the credits acquisition time
+		if exists {
+			if accountCache.CompareAndSwap(id, old, n) {
+				return n
+			}
+		} else if _, loaded := accountCache.LoadOrStore(id, n); !loaded {
+			return n
+		}
+	}
+}
+func hasCreditError(errs []string) bool {
+	for _, err := range errs {
+		// Legacy unscoped errors are unknown, not positive credit evidence.
+		if !strings.HasPrefix(err, "checkin:") && !strings.HasPrefix(err, "plan:") {
+			return true
+		}
+	}
+	return false
+}
+func creditSnapshotFresh(e *accountCacheEntry, now time.Time, age time.Duration) bool {
+	if e == nil || e.credits == nil || hasCreditError(e.errs) {
+		return false
+	}
+	at, err := time.Parse(time.RFC3339Nano, e.credits.FetchedAt)
+	elapsed := now.Sub(at)
+	return err == nil && elapsed >= 0 && elapsed <= age
+}
+func trustedCachedCredits(id string, now time.Time, age time.Duration) *creditsSummary {
+	if v, ok := accountCache.Load(id); ok {
+		if e, ok := v.(*accountCacheEntry); ok && creditSnapshotFresh(e, now, age) {
+			return e.credits
+		}
+	}
+	return nil
+}
+func invalidateCachedCredits(id string) {
+	// Keep a generation barrier even when a read is still in flight.
+	publishAccountSnapshot(id, accountSnapshotPatch{seq: nextAccountSnapshot(), creditsSet: true, invalidate: true})
 }

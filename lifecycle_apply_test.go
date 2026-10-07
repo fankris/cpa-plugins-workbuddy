@@ -161,9 +161,8 @@ func resetLifecycleStateForTest() {
 }
 
 // A CN account with zero remaining credits must be disabled (auth record
-// retained, disabled:true written) and must become schedulable again once
-// check-in restores credits.
-func TestLifecycleDisablesAndReenablesCNAccount(t *testing.T) {
+// retained, disabled:true written). Credit recovery alone must not enable it.
+func TestLifecycleDisablesButNeverAutomaticallyReenablesCNAccount(t *testing.T) {
 	store := newFakeAuthStore()
 	store.put("idx-cn", "workbuddy-CN-u1.json", "u1", regionCN, false)
 	installFakeAuthStore(t, store)
@@ -214,31 +213,19 @@ func TestLifecycleDisablesAndReenablesCNAccount(t *testing.T) {
 		t.Fatal("disabling must retain the refresh token (never delete a CN record)")
 	}
 
-	// Now credits come back (check-in restored them): the account re-enables.
+	// Recovery is not authorization to undo disabled:true.
 	restored := &creditsSummary{TotalRemain: 100, TotalUsed: 10, TotalSize: 110, PackCount: 1}
-	if !shouldReenableCN(true, restored) {
-		t.Fatal("a disabled CN account with credits must be re-enableable")
+	if shouldReenableCN(true, restored) {
+		t.Fatal("credit recovery must require explicit CPA enable")
 	}
-	reenableSa, phys, err := hostAuthGetBundle("idx-cn")
-	if err != nil {
-		t.Fatalf("hostAuthGetBundle after disable: %v", err)
+	before := len(store.savedRecords())
+	if err := reenableAuth("idx-cn", "workbuddy-CN-u1.json", sa, restored); err == nil {
+		t.Fatal("legacy auto-enable guard must reject")
 	}
-	if err := reenableAuth("idx-cn", "workbuddy-CN-u1.json", reenableSa, restored); err != nil {
-		t.Fatalf("reenableAuth: %v", err)
+	if len(store.savedRecords()) != before {
+		t.Fatal("automatic recovery wrote a credential")
 	}
-	last := store.savedRecords()
-	var reenabled struct {
-		Disabled bool `json:"disabled"`
-	}
-	if err := json.Unmarshal(last[len(last)-1].json, &reenabled); err != nil {
-		t.Fatalf("re-enabled record is not valid JSON: %v", err)
-	}
-	if reenabled.Disabled {
-		t.Fatal("restored credits must clear disabled")
-	}
-	if phys == nil {
-		t.Fatal("physical metadata lost")
-	}
+
 }
 
 // A Global account that is genuinely exhausted is retained disabled, never
@@ -308,7 +295,7 @@ func TestShouldReenableCNBoundaries(t *testing.T) {
 		{"not disabled", false, &creditsSummary{TotalRemain: 10}, false},
 		{"disabled, nil credits", true, nil, false},
 		{"disabled, still exhausted", true, &creditsSummary{TotalRemain: 0, TotalUsed: 5, TotalSize: 5}, false},
-		{"disabled, credits restored", true, &creditsSummary{TotalRemain: 5, TotalUsed: 1, TotalSize: 6}, true},
+		{"disabled, credits restored", true, &creditsSummary{TotalRemain: 5, TotalUsed: 1, TotalSize: 6}, false},
 	}
 	for _, tc := range cases {
 		if got := shouldReenableCN(tc.disabled, tc.cr); got != tc.want {

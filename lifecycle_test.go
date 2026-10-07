@@ -97,8 +97,8 @@ func TestShouldReenableCN(t *testing.T) {
 	if shouldReenableCN(true, &creditsSummary{TotalRemain: 0, TotalUsed: 5}) {
 		t.Fatal("exhausted must not reenable")
 	}
-	if !shouldReenableCN(true, &creditsSummary{TotalRemain: 3}) {
-		t.Fatal("disabled + remain should reenable")
+	if shouldReenableCN(true, &creditsSummary{TotalRemain: 3}) {
+		t.Fatal("disabled + remain still requires explicit CPA enable")
 	}
 }
 

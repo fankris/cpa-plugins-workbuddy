@@ -423,7 +423,7 @@ type registrationCapability struct {
 }
 
 // version is injected at build time via -ldflags "-X main.version=...".
-var version = "v8.0.15-1.0.57"
+var version = "v8.0.15-1.0.58"
 
 func wbRegistration() registration {
 	return registration{
@@ -439,7 +439,7 @@ func wbRegistration() registration {
 			ConfigFields: []pluginapi.ConfigField{
 				{Name: "login_region", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{"cn", "intl"}, Description: "首次登录/添加账号的授权渠道：CN（cn，默认）或 Intl（intl）。WorkBuddy / CodeBuddy 为入口名称。只影响新登录，已有账号不变。"},
 				{Name: "login_platform", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{"CLI", "ide"}, Description: "首次登录的客户端类型。保持 CLI（默认，对应 WorkBuddy 应用）；需要 CodeBuddy IDE 登录时选 ide。只影响新登录。"},
-				{Name: "scheduler_mode", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{"host", "builtin", "off", "credits"}, Description: "host：跟随 CPA 当前调度策略；builtin：兼容模式，显式 round-robin；off：builtin 的历史别名，不是关闭请求；credits：插件选择面板活动账号，不是按余额排序。默认 host，旧配置的显式模式保留；切换即时生效，不改写宿主策略。"},
+				{Name: "scheduler_mode", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{"host", "builtin", "off", "credits", "credits_expiry"}, Description: "host：跟随 CPA 当前调度策略；credits_expiry：仅使用新鲜可信积分，优先临期账号，不足以决策时交还 CPA；builtin：兼容模式，显式 round-robin；off：builtin 的历史别名，不是关闭请求；credits：插件选择面板活动账号，不是按余额排序。默认 host，旧配置的显式模式保留；切换即时生效，不改写宿主策略。"},
 			},
 		},
 		Capabilities: registrationCapability{

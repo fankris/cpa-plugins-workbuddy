@@ -1,7 +1,6 @@
 // policy.go is the pure decision layer for credit-driven lifecycle actions:
 // given an account's service realm and current credits, decide whether to disable
-// (CN), retain-and-disable (legacy WorkBuddy service), re-enable (CN after
-// check-in restores credits), or leave it alone. No I/O happens here —
+// (CN), retain-and-disable (legacy WorkBuddy service), or leave it alone. Recovery never authorizes automatic re-enable. No I/O happens here —
 // reconcileOneAccount consumes these decisions and applies them via lifecycle.go.
 package main
 
@@ -34,7 +33,7 @@ func (a lifecycleAction) String() string {
 	}
 }
 
-// lifecycleAuto gates automatic disable/delete/reenable. Default true.
+// lifecycleAuto gates confirmed-exhaustion disable/retain. Never auto-enable.
 var (
 	lifecycleAuto   = true
 	lifecycleAutoMu sync.RWMutex
@@ -113,7 +112,7 @@ func isSoftRateLimit(status int, body string) bool {
 }
 
 // lifecycleActionFor chooses disable/retain-and-disable/none from service realm and credits.
-// Does not consider reenable (that needs disabled flag).
+// Disabled credentials require explicit native CPA enable.
 
 func lifecycleActionFor(region string, cr *creditsSummary) lifecycleAction {
 	if !shouldActOnCredits(cr) {
@@ -125,20 +124,9 @@ func lifecycleActionFor(region string, cr *creditsSummary) lifecycleAction {
 	return lifecycleDisable
 }
 
-// shouldReenableCN is true when a CN account is disabled but now has credits.
-func shouldReenableCN(disabled bool, cr *creditsSummary) bool {
-	if !disabled {
-		return false
-	}
-	if cr == nil {
-		return false
-	}
-	if isCreditsExhausted(cr) {
-		return false
-	}
-	// Known positive remain, or non-exhausted with packages still having room.
-	return cr.TotalRemain > 0
-}
+// Without a host intent/revision contract, a positive balance never authorizes
+// undoing disabled:true. Explicit native CPA enable remains available.
+func shouldReenableCN(disabled bool, cr *creditsSummary) bool { return false }
 
 // displayNote builds a one-line note for CPAMP Auth cards.
 func displayNote(sa *storedAuth, cr *creditsSummary, disabled bool) string {

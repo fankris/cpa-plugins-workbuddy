@@ -93,7 +93,7 @@ func shouldRunNightGrowthNow(now time.Time) bool {
 }
 
 // runAutoCheckin is the scheduled lifecycle tick (09:00 / 21:00).
-// CN: optional daily check-in, then reconcile (disable exhausted / reenable after credits).
+// CN: optional daily check-in, then confirmed exhaustion handling; never auto-enable.
 // WorkBuddy service: no auto trial (one-shot claim is manual only); reconcile retains exhausted auths disabled.
 //
 // v0.6.31: per-account work runs concurrently (sem=4) — was serial, so N accounts
@@ -144,59 +144,43 @@ func processAutoCheckinAccount(f pluginapi.HostAuthFileEntry, doCheckin bool) {
 		}
 		if !supportsBusiness(sa, "checkin") {
 			// WorkBuddy service: never check-in or auto-claim trial. Lifecycle only.
-			// Invalidate cache (copy entry, set credits=nil, keep plan/checkin).
-			if v, ok := accountCache.Load(f.ID); ok {
-				if e, ok2 := v.(*accountCacheEntry); ok2 {
-					fresh := *e
-					fresh.credits = nil
-					fresh.fetched = time.Now()
-					accountCache.Store(f.ID, &fresh)
-				}
-			}
+			invalidateCachedCredits(f.ID)
 			if lifecycleEnabled() {
 				_, _ = reconcileOneAccount(f.AuthIndex, f.ID, true)
 			}
 			return
 		}
 		// CN: daily check-in when enabled.
+		ciSeq := nextAccountSnapshot()
 		ci, err := fetchCheckinStatus(sa)
 		if err == nil && ci != nil && ci.Active && !ci.TodayCheckedIn {
-			if _, callErr := performCheckinCall(sa); callErr == nil {
+			if result, callErr := performCheckinCall(sa); callErr == nil && result["success"] == true {
+				invalidateCachedCredits(f.ID)
 				// Refresh once after a successful checkin call so cache reflects
 				// the post-call state. If the status call fails keep the pre-call
 				// snapshot rather than dropping it (v0.6.31: avoid shadowing ci
 				// with a second fetch that could race with concurrent readers).
+				ciSeq = nextAccountSnapshot()
 				if ci2, _ := fetchCheckinStatus(sa); ci2 != nil {
 					ci = ci2
 				}
 				// P1-5: checkin grants new credits — refresh the credits cache
 				// immediately so the panel shows the updated balance without
 				// waiting for the async reconcile pass.
-				if cr2, crErr := fetchUserResource(sa); crErr == nil && cr2 != nil {
-					if v, ok := accountCache.Load(f.ID); ok {
-						if prev, ok2 := v.(*accountCacheEntry); ok2 {
-							fresh := *prev
-							fresh.credits = cr2
-							fresh.fetched = time.Now()
-							accountCache.Store(f.ID, &fresh)
-						}
-					}
+				seq := nextAccountSnapshot()
+				cr2, crErr := fetchUserResource(sa)
+				patch := accountSnapshotPatch{seq: seq, creditsSet: true, credits: cr2}
+				if crErr != nil {
+					patch.errors = []string{"credits: " + safeManagementError(crErr)}
 				}
+				publishAccountSnapshot(f.ID, patch)
 			}
 		}
 		// Refresh cache with latest checkin status (merge, don't wipe credits/plan).
 		if ci != nil {
-			var prev *accountCacheEntry
-			if v, ok := accountCache.Load(f.ID); ok {
-				prev, _ = v.(*accountCacheEntry)
-			}
-			entry := &accountCacheEntry{checkin: ci, fetched: time.Now()}
-			if prev != nil {
-				entry.credits = prev.credits
-				entry.plan = prev.plan
-			}
-			accountCache.Store(f.ID, entry)
+			mergeCheckinCache(f.ID, ci, ciSeq)
 		}
+
 		// v0.9.27: growth automation rides the same 09:00/21:00 ticks — light
 		// the daily growth tasks (event reports + claims) and run the buddy
 		// travel loop. Both are best-effort: a growth failure must never
@@ -337,9 +321,10 @@ func checkinOneAccount(f pluginapi.HostAuthFileEntry) map[string]any {
 
 	// Status probe: a failure here is NOT fatal — the check-in call below is
 	// idempotent upstream and its business message tells us "already" anyway.
+	ciSeq := nextAccountSnapshot()
 	ci, ciErr := fetchCheckinStatus(sa)
 	if ciErr == nil && ci != nil && ci.TodayCheckedIn {
-		mergeCheckinCache(f.ID, ci)
+		mergeCheckinCache(f.ID, ci, ciSeq)
 		out["success"] = true
 		out["skipped"] = true
 		out["reason"] = "already"
@@ -352,7 +337,7 @@ func checkinOneAccount(f pluginapi.HostAuthFileEntry) map[string]any {
 		// "没有签到计划" to the panel, which reads like a failure
 		// (2026-09-02 user report). Surface a clean skip instead — mirrors
 		// cockpit-tools' "签到活动未开启或不适用" handling.
-		mergeCheckinCache(f.ID, ci)
+		mergeCheckinCache(f.ID, ci, ciSeq)
 		out["success"] = false
 		out["skipped"] = true
 		out["reason"] = "inactive"
@@ -369,10 +354,14 @@ func checkinOneAccount(f pluginapi.HostAuthFileEntry) map[string]any {
 	for k, v := range res {
 		out[k] = v
 	}
+	if out["uncertain"] == true {
+		invalidateCachedCredits(f.ID)
+		return out
+	}
 	// Business soft-fail ("already checked in" family) → done, not failure.
 	if msg, _ := out["message"].(string); msg != "" && out["success"] == false {
 		low := strings.ToLower(msg)
-		if strings.Contains(low, "already") || strings.Contains(msg, "已签") || strings.Contains(msg, "今日") {
+		if strings.Contains(low, "already checked") || strings.Contains(low, "already check-in") || strings.Contains(msg, "已签到") || strings.Contains(msg, "已經簽到") || strings.Contains(msg, "已簽到") {
 			out["success"] = true
 			out["skipped"] = true
 			out["reason"] = "already"
@@ -391,29 +380,29 @@ func checkinOneAccount(f pluginapi.HostAuthFileEntry) map[string]any {
 		out["success"] = true
 	}
 
+	if out["success"] != true {
+		return out
+	}
+	invalidateCachedCredits(f.ID)
+	ciSeq = nextAccountSnapshot()
 	// Post-call cache refresh: one extra status fetch at most; on failure
 	// write a TodayCheckedIn placeholder rather than leaving the panel stale.
 	if ci2, err2 := fetchCheckinStatus(sa); err2 == nil && ci2 != nil {
-		mergeCheckinCache(f.ID, ci2)
+		mergeCheckinCache(f.ID, ci2, ciSeq)
 	} else {
-		mergeCheckinCache(f.ID, &checkinSummary{TodayCheckedIn: true})
+		mergeCheckinCache(f.ID, &checkinSummary{TodayCheckedIn: true}, ciSeq)
 	}
 	return out
 }
 
 // mergeCheckinCache stores the latest check-in snapshot while preserving the
 // credits/plan fields of any previous cache entry (merge, not replace).
-func mergeCheckinCache(authID string, ci *checkinSummary) {
-	var prev *accountCacheEntry
-	if v, ok := accountCache.Load(authID); ok {
-		prev, _ = v.(*accountCacheEntry)
+func mergeCheckinCache(authID string, ci *checkinSummary, generations ...uint64) {
+	seq := nextAccountSnapshot()
+	if len(generations) > 0 {
+		seq = generations[0]
 	}
-	entry := &accountCacheEntry{checkin: ci, fetched: time.Now()}
-	if prev != nil {
-		entry.credits = prev.credits
-		entry.plan = prev.plan
-	}
-	accountCache.Store(authID, entry)
+	publishAccountSnapshot(authID, accountSnapshotPatch{seq: seq, checkinSet: true, checkin: ci})
 }
 
 func checkinLockFor(authIndex string) *sync.Mutex {

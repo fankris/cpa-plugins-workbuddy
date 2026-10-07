@@ -1,12 +1,12 @@
 {
   "name": "workbuddy-cpa-panel",
-  "version": "2.0.0-rebuild.27",
+  "version": "2.0.0-rebuild.29",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "cd .. && node --test tests/frontend-contracts.mjs tests/native-config-contract.test.cjs"
+    "test": "cd .. && node --test tests/frontend-contracts.mjs tests/native-config-contract.test.cjs tests/iteration-29-queue.mjs"
   },
   "dependencies": {
     "react": "19.2.0",

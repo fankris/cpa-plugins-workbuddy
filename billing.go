@@ -233,7 +233,7 @@ func billingCallWithClient(ctx context.Context, client pluginapi.HostHTTPClient,
 	defer cancel()
 	data, err := billingCallOnceWithClient(ctx, client, sa, path, body)
 	for _, d := range billingRetryDelays {
-		if err == nil || !isTransientUpstreamErr(err) {
+		if !billingReadRetryAllowed(path) || err == nil || !isTransientUpstreamErr(err) {
 			break
 		}
 		// Honour the upstream's own Retry-After (bounded) over our backoff:
@@ -249,6 +249,31 @@ func billingCallWithClient(ctx context.Context, client pluginapi.HostHTTPClient,
 		data, err = billingCallOnceWithClient(ctx, client, sa, path, body)
 	}
 	return data, err
+}
+
+// Billing uses POST even for reads. Retry permission is an explicit business
+// contract, never inferred from the HTTP method or from a transient status.
+func billingReadRetryAllowed(path string) bool {
+	switch path {
+	case "/v2/billing/meter/checkin-activity-status", "/v2/billing/meter/checkin-status", "/v2/billing/meter/get-payment-type", "/v2/billing/meter/get-user-resource", "/billing/meter/get-user-resource":
+		return true
+	default:
+		return false
+	}
+}
+func billingMutationFailure(err error) map[string]any {
+	out := map[string]any{"success": false, "message": safeManagementError(err)}
+	var business *billingBusinessError
+	if errors.As(err, &business) {
+		out["business_code"] = business.Code
+		return out
+	}
+	var upstream *upstreamError
+	if errors.As(err, &upstream) && upstream.StatusCode >= 400 && upstream.StatusCode < 500 {
+		return out
+	}
+	out["uncertain"], out["status"] = true, "unconfirmed"
+	return out
 }
 
 // isTransientBillingErr is kept as a thin alias for callers/tests that still
@@ -672,6 +697,7 @@ func fetchUserResourceWithClient(ctx context.Context, client pluginapi.HostHTTPC
 			sum.TotalUsed = derived
 		}
 	}
+	sum.FetchedAt = time.Now().UTC().Format(time.RFC3339Nano)
 	return sum, nil
 }
 
@@ -705,11 +731,14 @@ func performCheckinCall(sa *storedAuth) (map[string]any, error) {
 	if err != nil {
 		// billingCall returns business errors (code != 0) as Go errors; surface
 		// them as a structured result so the panel can show "already checked in".
-		return map[string]any{"success": false, "message": err.Error()}, nil
+		return billingMutationFailure(err), nil
 	}
 	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, err
+		return billingMutationFailure(err), nil
+	}
+	if m == nil {
+		return billingMutationFailure(fmt.Errorf("missing check-in acknowledgement")), nil
 	}
 	// Normalise success to a real bool (upstream sometimes returns the string
 	// "true", which silently failed `out["success"] == true` downstream —
@@ -758,20 +787,23 @@ func performTrialCall(sa *storedAuth) (map[string]any, error) {
 	}
 	data, err := billingCall(sa, "/billing/ide/trial", nil)
 	if err != nil {
-		msg := err.Error()
+		var business *billingBusinessError
 		// code=14051 means the trial has already been claimed — not a real error.
-		if strings.Contains(msg, "14051") {
+		if errors.As(err, &business) && business.Code == 14051 {
 			return map[string]any{
 				"success":         false,
 				"message":         "已领取过专家加油包",
 				"already_claimed": true,
 			}, nil
 		}
-		return map[string]any{"success": false, "message": msg}, nil
+		return billingMutationFailure(err), nil
 	}
 	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, err
+		return billingMutationFailure(err), nil
+	}
+	if m == nil {
+		return billingMutationFailure(fmt.Errorf("missing trial acknowledgement")), nil
 	}
 	// Same coercion as performCheckinCall: keep an explicit upstream failure.
 	m["success"] = coerceBool(m["success"], true)

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
@@ -146,8 +147,8 @@ func TestSchedulerPick_SingleCandidate_PicksIt(t *testing.T) {
 
 func TestSchedulerPick_PrefersPanelSelection(t *testing.T) {
 	resetActiveAuth(t)
-	accountCache.Store("wb-a", &accountCacheEntry{credits: &creditsSummary{TotalRemain: 10, TotalSize: 10}})
-	accountCache.Store("wb-b", &accountCacheEntry{credits: &creditsSummary{TotalRemain: 500, TotalSize: 500}})
+	accountCache.Store("wb-a", &accountCacheEntry{credits: &creditsSummary{FetchedAt: time.Now().UTC().Format(time.RFC3339Nano), TotalRemain: 10, TotalSize: 10}})
+	accountCache.Store("wb-b", &accountCacheEntry{credits: &creditsSummary{FetchedAt: time.Now().UTC().Format(time.RFC3339Nano), TotalRemain: 500, TotalSize: 500}})
 	defer func() {
 		accountCache.Delete("wb-a")
 		accountCache.Delete("wb-b")
@@ -174,10 +175,10 @@ func TestSchedulerPick_StaysOnExhaustedSelection(t *testing.T) {
 	// When selected is exhausted AND a non-exhausted candidate exists,
 	// it should switch to the non-exhausted one and update activeAuthID.
 	accountCache.Store("wb-exhausted", &accountCacheEntry{
-		credits: &creditsSummary{TotalRemain: 0, TotalUsed: 500, TotalSize: 500},
+		credits: &creditsSummary{FetchedAt: time.Now().UTC().Format(time.RFC3339Nano), TotalRemain: 0, TotalUsed: 500, TotalSize: 500},
 	})
 	accountCache.Store("wb-ok", &accountCacheEntry{
-		credits: &creditsSummary{TotalRemain: 300, TotalUsed: 0, TotalSize: 300},
+		credits: &creditsSummary{FetchedAt: time.Now().UTC().Format(time.RFC3339Nano), TotalRemain: 300, TotalUsed: 0, TotalSize: 300},
 	})
 	defer func() {
 		accountCache.Delete("wb-exhausted")
@@ -208,10 +209,10 @@ func TestSchedulerPick_AllExhausted_KeepsCurrent(t *testing.T) {
 	// When ALL candidates are exhausted, keep current selection rather than
 	// flip-flopping between exhausted accounts.
 	accountCache.Store("wb-a", &accountCacheEntry{
-		credits: &creditsSummary{TotalRemain: 0, TotalUsed: 100, TotalSize: 100},
+		credits: &creditsSummary{FetchedAt: time.Now().UTC().Format(time.RFC3339Nano), TotalRemain: 0, TotalUsed: 100, TotalSize: 100},
 	})
 	accountCache.Store("wb-b", &accountCacheEntry{
-		credits: &creditsSummary{TotalRemain: 0, TotalUsed: 200, TotalSize: 200},
+		credits: &creditsSummary{FetchedAt: time.Now().UTC().Format(time.RFC3339Nano), TotalRemain: 0, TotalUsed: 200, TotalSize: 200},
 	})
 	defer func() {
 		accountCache.Delete("wb-a")
@@ -237,7 +238,7 @@ func TestSchedulerPick_AllExhausted_KeepsCurrent(t *testing.T) {
 func TestSchedulerPick_SwitchesOnlyWhenSelectionGone(t *testing.T) {
 	resetActiveAuth(t)
 	accountCache.Store("wb-ok", &accountCacheEntry{
-		credits: &creditsSummary{TotalRemain: 300, TotalUsed: 0, TotalSize: 300},
+		credits: &creditsSummary{FetchedAt: time.Now().UTC().Format(time.RFC3339Nano), TotalRemain: 300, TotalUsed: 0, TotalSize: 300},
 	})
 	defer accountCache.Delete("wb-ok")
 	// Selected auth is NOT in candidates (host disabled it) → should switch.
@@ -263,7 +264,7 @@ func TestSchedulerPick_SwitchesOnlyWhenSelectionGone(t *testing.T) {
 func TestSchedulerPick_SkipsDisabledCandidates(t *testing.T) {
 	resetActiveAuth(t)
 	accountCache.Store("wb-live", &accountCacheEntry{
-		credits: &creditsSummary{TotalRemain: 50, TotalSize: 50},
+		credits: &creditsSummary{FetchedAt: time.Now().UTC().Format(time.RFC3339Nano), TotalRemain: 50, TotalSize: 50},
 	})
 	defer accountCache.Delete("wb-live")
 	raw, err := handleSchedulerPick(mustMarshal(t, pluginapi.SchedulerPickRequest{

@@ -1,3 +1,7 @@
+> Latest: **v8.0.15-2.0.0-rebuild.29** — identity-first account loading, bounded/cancelable credit reads. See [iteration 29](docs/ITERATION-29.md). `/credits` without `auth_index` is now paginated (max 4); do not treat a partial page as the full account pool.
+
+> rebuild28 重要变更：插件不再自动启用任何已停用账号。积分恢复后须通过 CPA 原生“启用账号”手动确认；新鲜积分确认耗尽时仍可自动停用。详见 [本轮说明](docs/ITERATION-28.md)。
+
 # CPA 的 WorkBuddy 扩展插件
 
 **v8.0.15-2.0.0-rebuild.23 · 2026-10-07**。CPA8.0.15 / ABI1 / schema6，保留原 WorkBuddy /panel 双菜单。

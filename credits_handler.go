@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
@@ -148,15 +146,7 @@ func handleClaimTrial(req pluginapi.ManagementRequest) map[string]any {
 				out[k] = v
 			}
 		}
-		// Invalidate credits cache (copy entry, set credits=nil, keep plan/checkin).
-		if v, ok := accountCache.Load(f.ID); ok {
-			if e, ok2 := v.(*accountCacheEntry); ok2 {
-				fresh := *e
-				fresh.credits = nil
-				fresh.fetched = time.Now()
-				accountCache.Store(f.ID, &fresh)
-			}
-		}
+		invalidateCachedCredits(f.ID)
 		// Trial is not a maintenance operation. Never change disabled state here.
 		return out
 	}
@@ -199,89 +189,4 @@ func handleSelectAuth(req pluginapi.ManagementRequest) map[string]any {
 		}
 	}
 	return map[string]any{"error": "account not found", "auth_index": authIndex}
-}
-
-// handleCreditsQuery returns real-time credits for one or all accounts.
-// Pass ?auth_index=<idx> to query a single account; omit for all.
-// Single-account mode returns full account info (nickname, region, credits,
-// exhausted, trial_claimed) so the panel can update one card without
-// reloading the entire dashboard.
-// refreshCreditsRow reads one account's business snapshot. Unlike /refresh,
-// it never reconciles lifecycle, selects routing, or saves an auth record.
-func refreshCreditsRow(f pluginapi.HostAuthFileEntry) map[string]any {
-	acct := map[string]any{"auth_index": f.AuthIndex}
-	sa, err := hostAuthGet(f.AuthIndex)
-	if err != nil {
-		acct["error"] = "credential read failed"
-		return acct
-	}
-	acct["service"] = accountServiceRegion(sa)
-	acct["nickname"] = sa.Account.Nickname
-	acct["uid"] = sa.Account.UID
-	acct["region"] = panelRegion(sa)
-	acct["name"] = f.Name
-	acct["label"] = f.Label
-	acct["disabled"] = f.Disabled
-	acct["selected"] = getActiveAuthID() == f.ID
-	cr, err := fetchUserResource(sa)
-	if err != nil {
-		acct["error"] = safeManagementError(err)
-		acct["data_error"] = acct["error"]
-		return acct
-	}
-	now := time.Now()
-	if cr != nil {
-		cr.FetchedAt = now.UTC().Format(time.RFC3339)
-	}
-	acct["credits"] = cr
-	acct["capabilities"] = accountCapabilities(sa, cr)
-	acct["trial_eligibility"] = accountCapabilities(sa, cr)["trial"].Eligibility
-	acct["plan"] = fetchPaymentType(sa)
-	if isWorkBuddyService(sa) {
-		acct["trial_claimed"] = hasTrialPack(cr)
-	}
-	acct["exhausted"] = isCreditsExhausted(cr)
-	acct["data_error"] = ""
-	acct["error"] = ""
-	// Copy the existing cache entry: no shared snapshot is mutated in place.
-	next := accountCacheEntry{credits: cr, fetched: now}
-	if v, ok := accountCache.Load(f.ID); ok {
-		if previous, ok := v.(*accountCacheEntry); ok {
-			next.checkin = previous.checkin
-			next.plan = previous.plan
-		}
-	}
-	next.plan, _ = acct["plan"].(string)
-	accountCache.Store(f.ID, &next)
-	return acct
-}
-func handleCreditsQuery(req pluginapi.ManagementRequest) map[string]any {
-	id := strings.TrimSpace(queryParam(req, "auth_index"))
-	files, err := hostAuthList()
-	if err != nil {
-		return map[string]any{"error": "cannot list CPA credentials"}
-	}
-	selected := make([]pluginapi.HostAuthFileEntry, 0, len(files))
-	for _, f := range files {
-		if id == "" || id == f.AuthIndex {
-			selected = append(selected, f)
-		}
-	}
-	if id != "" && len(selected) == 0 {
-		return map[string]any{"error": "account not found"}
-	}
-	out := make([]map[string]any, len(selected))
-	var wg sync.WaitGroup
-	slots := make(chan struct{}, 4)
-	for i, f := range selected {
-		slots <- struct{}{}
-		wg.Add(1)
-		go func(i int, f pluginapi.HostAuthFileEntry) {
-			defer wg.Done()
-			defer func() { <-slots }()
-			out[i] = refreshCreditsRow(f)
-		}(i, f)
-	}
-	wg.Wait()
-	return map[string]any{"accounts": out, "server_time_iso": time.Now().UTC().Format(time.RFC3339)}
 }

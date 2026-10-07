@@ -35,7 +35,7 @@ func TestBillingCall_RetriesOn5xx(t *testing.T) {
 	defer restore()
 
 	sa := &storedAuth{}
-	data, err := billingCall(sa, "/test", nil)
+	data, err := billingCall(sa, "/v2/billing/meter/get-payment-type", nil)
 	if err != nil {
 		t.Fatalf("expected success after retry, got: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestBillingCall_NoRetryOn4xx(t *testing.T) {
 	defer restore()
 
 	sa := &storedAuth{}
-	_, err := billingCall(sa, "/test", nil)
+	_, err := billingCall(sa, "/v2/billing/meter/get-payment-type", nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -126,7 +126,7 @@ func TestBillingCall_RetriesOn429AndHonoursRetryAfter(t *testing.T) {
 	restore := setBillingBase(srv.URL)
 	defer restore()
 
-	data, err := billingCall(&storedAuth{}, "/test", nil)
+	data, err := billingCall(&storedAuth{}, "/v2/billing/meter/get-payment-type", nil)
 	if err != nil {
 		t.Fatalf("429 should be retried and succeed: %v", err)
 	}

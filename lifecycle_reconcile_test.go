@@ -251,6 +251,8 @@ func TestReconcileAllAccountsHealthyFleetIsNoop(t *testing.T) {
 	srv, _ := billingStub(t, 50)
 	restore := setBillingBase(srv.URL)
 	defer restore()
+	restoreGlobal := setBillingBaseGlobal(srv.URL)
+	defer restoreGlobal()
 
 	oldLifecycle := lifecycleAuto
 	lifecycleAutoMu.Lock()
@@ -266,9 +268,9 @@ func TestReconcileAllAccountsHealthyFleetIsNoop(t *testing.T) {
 	if len(rows) != 0 {
 		t.Fatalf("a healthy fleet should produce no action rows, got %+v", rows)
 	}
-	// The first pass refreshes each record's note (region/credits summary).
-	if len(store.savedRecords()) == 0 {
-		t.Fatal("the first reconcile should refresh the auth note")
+	// Healthy reads must not rewrite a full credential record.
+	if len(store.savedRecords()) != 0 {
+		t.Fatal("healthy reconcile must not write credentials")
 	}
 	firstPassWrites := len(store.savedRecords())
 

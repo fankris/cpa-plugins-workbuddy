@@ -22,7 +22,7 @@ func TestStoreQuotaSnapshotIndexesAuthIndexAndID(t *testing.T) {
 			t.Fatalf("missing cache key %q", key)
 		}
 		entry, ok := value.(*accountCacheEntry)
-		if !ok || entry.credits != credits || entry.plan != "Pro" {
+		if !ok || entry.credits == nil || entry.credits.TotalRemain != credits.TotalRemain || entry.credits.FetchedAt == "" || entry.plan != "Pro" {
 			t.Fatalf("cache[%q]=%#v", key, value)
 		}
 	}

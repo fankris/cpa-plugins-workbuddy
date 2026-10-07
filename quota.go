@@ -90,12 +90,18 @@ func fetchNativeQuota(ctx context.Context, req pluginapi.QuotaFetchRequest) (plu
 	if err != nil {
 		return pluginapi.QuotaFetchResponse{}, err
 	}
+	seq := nextAccountSnapshot()
 	credits, err := fetchUserResourceWithClient(ctx, req.HTTPClient, sa)
 	if err != nil {
+		for _, key := range []string{req.AuthIndex, req.AuthID} {
+			if key != "" {
+				publishAccountSnapshot(key, accountSnapshotPatch{seq: seq, creditsSet: true, errors: []string{"credits: " + safeManagementError(err)}})
+			}
+		}
 		return pluginapi.QuotaFetchResponse{}, err
 	}
 	plan := fetchPaymentTypeWithClient(ctx, req.HTTPClient, sa)
-	storeQuotaSnapshot(req.AuthIndex, req.AuthID, plan, credits)
+	storeQuotaSnapshot(req.AuthIndex, req.AuthID, plan, credits, seq)
 	resp := quotaResponse(plan, credits)
 	resp.ServerTimeOffsetMs = upstreamClockOffsetMs.Load()
 	return resp, nil
@@ -125,40 +131,18 @@ func quotaStoredAuth(req pluginapi.QuotaFetchRequest) (*storedAuth, error) {
 	return nil, fmt.Errorf("quota credential storage is unavailable")
 }
 
-func storeQuotaSnapshot(authIndex, authID, plan string, credits *creditsSummary) {
-	keys := []string{strings.TrimSpace(authIndex), strings.TrimSpace(authID)}
-	seen := make(map[string]struct{}, len(keys))
-	var previous *accountCacheEntry
-	for _, key := range keys {
-		if key == "" {
-			continue
-		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		if v, ok := accountCache.Load(key); ok {
-			if entry, ok := v.(*accountCacheEntry); ok && entry != nil && previous == nil {
-				previous = entry
-			}
-		}
-	}
-	if len(seen) == 0 || credits == nil {
+func storeQuotaSnapshot(authIndex, authID, plan string, credits *creditsSummary, generations ...uint64) {
+	if credits == nil {
 		return
 	}
-	entry := &accountCacheEntry{
-		credits: credits,
-		plan:    strings.TrimSpace(plan),
-		fetched: nowUTC(),
+	seq := nextAccountSnapshot()
+	if len(generations) > 0 {
+		seq = generations[0]
 	}
-	if previous != nil {
-		entry.checkin = previous.checkin
-	}
-	// The panel indexes accountCache by auth.ID, while native quota requests
-	// arrive with the stable auth_index. Keep both aliases pointed at the same
-	// snapshot so a native refresh is immediately visible in either path.
-	for key := range seen {
-		accountCache.Store(key, entry)
+	for _, key := range []string{strings.TrimSpace(authIndex), strings.TrimSpace(authID)} {
+		if key != "" {
+			publishAccountSnapshot(key, accountSnapshotPatch{seq: seq, creditsSet: true, credits: credits, planSet: true, plan: strings.TrimSpace(plan)})
+		}
 	}
 }
 

@@ -11,7 +11,7 @@ frontend:
 	cd frontend && npm ci --no-audit --no-fund && npm run typecheck && npm run build
 
 frontend-test:
-	node --test tests/frontend-contracts.mjs tests/native-config-contract.test.cjs
+	node --test tests/frontend-contracts.mjs tests/native-config-contract.test.cjs tests/iteration-29-queue.mjs
 
 # Default target: build the plugin for the current platform.
 build:
