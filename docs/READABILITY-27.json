@@ -1,0 +1,85 @@
+{
+  "baseline_version": "rebuild26",
+  "current_version": "v8.0.15-2.0.0-rebuild.27",
+  "scope": "Plugin contents, original CPAMC frontend with synthetic backend",
+  "before": [
+    {
+      "plugin_width": 390,
+      "page": "accounts",
+      "min_font_px": 9,
+      "visible_text_nodes_under12": 31
+    },
+    {
+      "plugin_width": 390,
+      "page": "dashboard",
+      "min_font_px": 9,
+      "visible_text_nodes_under12": 20
+    },
+    {
+      "plugin_width": 390,
+      "page": "models",
+      "min_font_px": 8,
+      "visible_text_nodes_under12": 69
+    },
+    {
+      "plugin_width": 390,
+      "page": "tasks",
+      "min_font_px": 9,
+      "visible_text_nodes_under12": 32
+    },
+    {
+      "plugin_width": 390,
+      "page": "settings",
+      "min_font_px": 9,
+      "visible_text_nodes_under12": 19
+    },
+    {
+      "plugin_width": 1150,
+      "page": "accounts",
+      "min_font_px": 9,
+      "visible_text_nodes_under12": 78
+    },
+    {
+      "plugin_width": 1150,
+      "page": "dashboard",
+      "min_font_px": 9,
+      "visible_text_nodes_under12": 11
+    },
+    {
+      "plugin_width": 1150,
+      "page": "models",
+      "min_font_px": 9,
+      "visible_text_nodes_under12": 67
+    },
+    {
+      "plugin_width": 1150,
+      "page": "tasks",
+      "min_font_px": 9,
+      "visible_text_nodes_under12": 16
+    },
+    {
+      "plugin_width": 1150,
+      "page": "settings",
+      "min_font_px": 9,
+      "visible_text_nodes_under12": 10
+    }
+  ],
+  "current_page_checks": 100,
+  "current_min_font_px": 12,
+  "current_under12": 0,
+  "viewports": [
+    320,
+    390,
+    1024,
+    1366,
+    1920
+  ],
+  "locales": [
+    "zh-CN",
+    "zh-TW",
+    "en",
+    "ru"
+  ],
+  "desktop_action_column_before_px": 260,
+  "desktop_action_column_after_px": 132.140625
+}

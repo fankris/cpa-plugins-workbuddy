@@ -42,7 +42,7 @@ function App(){
  const [desktopPageSize,setDesktopPageSize]=useViewState('desktopPageSize',8);
  const pageSize=compact?mobilePageSize:([8,12,20].includes(desktopPageSize)?desktopPageSize:8);
  const accountViewport=useRef<HTMLDivElement>(null);
- useEffect(()=>{const node=accountViewport.current;if(!compact||tab!=='accounts'||!node)return;const measure=()=>setMobilePageSize(Math.max(1,Math.min(8,Math.floor(node.clientHeight/118))));measure();const observer=new ResizeObserver(measure);observer.observe(node);return()=>observer.disconnect()},[compact,tab]);
+ useEffect(()=>{const node=accountViewport.current;if(!compact||tab!=='accounts'||!node)return;const measure=()=>setMobilePageSize(Math.max(1,Math.min(8,Math.ceil(node.clientHeight/(parseFloat(getComputedStyle(node).getPropertyValue('--account-row-min'))||148)))));measure();const observer=new ResizeObserver(measure);observer.observe(node);return()=>observer.disconnect()},[compact,tab]);
  useEffect(()=>{if(!pageActionsOpen)return;const close=(event:PointerEvent)=>{if(!(event.target as HTMLElement).closest('#page-actions,.more-actions'))setPageActionsOpen(false)};const escape=(event:KeyboardEvent)=>{if(event.key==='Escape')setPageActionsOpen(false)};document.addEventListener('pointerdown',close);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',escape)}},[pageActionsOpen]);
  const [config,setConfig]=useState<Row|null>(null);
  const [runtimeSettings,setRuntimeSettings]=useState<Row|null>(null);

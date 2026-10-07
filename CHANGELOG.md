@@ -1,3 +1,7 @@
+# rebuild27 — readable typography and all-workspace layout
+
+Shared 12px minimum secondary text, 14–16px primary content, compact model records, content-sized task cards, independent settings columns and responsive account pagination. See docs/ITERATION-27.md and docs/READABILITY-27.json.
+
 # rebuild26 — layered model badges
 
 Paired CN / Intl and Dynamic / Custom provenance; scoped Vision / Tools / Reasoning declaration badges; keyboard-accessible per-source evidence; numeric parameters remain distinct. No routing or credential mutations. See docs/ITERATION-26.md.
