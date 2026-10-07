@@ -1,3 +1,7 @@
+# rebuild25 — invariant CN / Intl terminology
+
+Channel names remain CN / Intl across all four UI languages. Product names, model IDs, API fields and user-supplied names are preserved. Existing regional business behavior unchanged. See docs/ITERATION-25.md and docs/TERMINOLOGY.md.
+
 # rebuild24 — regional business isolation
 
 See docs/ITERATION-24.md. CN-only check-in/tasks/travel; read-only international activation; unknown trial eligibility; independent bounded travel worker; authenticated task requests; narrow overseas billing fallback.

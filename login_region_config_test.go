@@ -22,7 +22,7 @@ func TestRegistrationExposesAuthorizationRegions(t *testing.T) {
 	if len(field.EnumValues) != 2 || field.EnumValues[0] != "cn" || field.EnumValues[1] != "intl" {
 		t.Fatalf("login_region enum values = %#v, want [cn intl]", field.EnumValues)
 	}
-	for _, want := range []string{"国内", "海外", "cn", "intl"} {
+	for _, want := range []string{"CN", "Intl", "cn", "intl"} {
 		if !strings.Contains(field.Description, want) {
 			t.Errorf("login_region description %q does not contain %q", field.Description, want)
 		}
