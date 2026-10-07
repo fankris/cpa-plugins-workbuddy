@@ -315,6 +315,10 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
    Leave only WorkBuddy business actions beneath that host-owned toolbar. */
 :root[data-host-ui="cpamc"] .data-refresh,:root[data-host-ui="cpamc"] .section-nav .connection{display:none}
 :root[data-host-ui="cpamc"] .page-controls:has(>.data-refresh:only-child){display:none}
+/* The model hub renders its own refresh control with the SAME label (t('refresh'))
+   and the SAME action (load(true)); the page-level one would be an exact duplicate. */
+[data-tab=models] .page-controls .data-refresh{display:none}
+[data-tab=models] .page-controls:has(>.data-refresh:only-child){display:none}
 @media(max-width:640px),(max-height:500px) and (pointer:coarse){
  :root[data-host-ui="cpamc"] .page-controls .mobile-quota,:root[data-host-ui="cpamc"] .page-controls .mobile-import{flex:1;margin-left:0}
 }
