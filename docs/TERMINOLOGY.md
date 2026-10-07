@@ -14,3 +14,5 @@
 - Русский：Только CN；Сервисы аккаунта Intl；CN / Intl。
 
 固定名称由 i18n 的 fixedLabel 生成四语言一致值，并由自动测试约束。技术字段仍使用现有 cn / intl，兼容旧 global；这些协议值不改成界面大小写，不改变存储或路由。未知渠道显示“渠道未确认”，不臆测为 Intl。
+
+模型徽章/参数原名：Dynamic、Custom、Vision、Tools、Reasoning、Context、Max Output。说明及证据状态可以本地化。

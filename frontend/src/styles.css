@@ -445,3 +445,26 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 @media(max-width:640px){.connection-panel{padding:10px 12px}.connection-heading{gap:8px}.setting-row{gap:10px}.settings-group{margin-top:16px;padding-top:16px}.accounts-table .row-actions{justify-content:flex-end}.attention-panel .expiry-account{align-items:center;flex-direction:row;gap:8px}}
 /* 24: capability scope is explicit; loaded switches are not run history. */
 .capability-scope{display:block;color:var(--secondary);margin:4px 0}.setting-row .setting-state{display:block}.automation-run{border-top:1px solid var(--line);margin-top:20px;padding-top:16px}.automation-run .notice,.activation-result{display:flex;flex-direction:column;gap:6px}.international-business{margin-top:20px;padding:16px;border:1px solid var(--line);border-radius:10px}.international-business p{font-size:12px;margin-top:8px}.international-business a{text-decoration:underline;text-underline-offset:3px}.international-business .detail-actions{margin:10px 0;flex-wrap:wrap}
+/* 26: layered model badges. Provenance pairs are never a Cartesian claim. */
+.hub-identity{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;min-width:0}
+.hub-identity>strong{min-width:0;overflow-wrap:anywhere}
+.hub-identity .hub-row-origins{display:flex;gap:4px;flex-wrap:wrap;margin:0;min-width:0}
+.model-badge{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;line-height:1.25;font-size:10px;white-space:nowrap;font-weight:500;vertical-align:middle}
+.model-badge svg{flex-shrink:0}.model-badge small{font-size:9px;font-variant-numeric:tabular-nums}
+.hub-provenance{background:var(--muted);color:var(--fg)}
+.hub-provenance.custom{border-style:dashed;background:transparent}
+.hub-provenance .hub-channel,.hub-provenance .hub-origin{display:inline;margin:0;padding:0;background:transparent;border:0;border-radius:0;color:inherit;font-size:10px;line-height:inherit}
+.hub-provenance .hub-channel{font-weight:700}.hub-provenance .hub-origin{font-weight:400;color:var(--secondary)}
+.badge-divider{align-self:stretch;border-left:1px solid var(--line);margin:0 1px}.hub-provenance.upstream-disabled{color:var(--secondary)}
+.hub-capabilities{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:7px}
+.hub-capability{appearance:none;cursor:pointer;font-family:inherit;background:color-mix(in srgb,var(--accent) 7%,var(--bg));border-color:color-mix(in srgb,var(--accent) 23%,var(--line));color:var(--fg)}
+.hub-capability svg{color:var(--accent)}.hub-capability.partial{border-style:dashed}.hub-capability small{border-left:1px solid var(--line);padding-left:4px;color:var(--secondary)}
+.hub-capability:hover{background:color-mix(in srgb,var(--accent) 14%,var(--bg))}.hub-capability:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.hub-capability-evidence{display:flex;flex-direction:column;gap:6px;margin:0;padding:9px 0;border-block:1px solid var(--line);font-size:11px}
+.hub-capability-evidence>div{display:flex;justify-content:space-between;gap:10px}.hub-capability-evidence dt{display:flex;align-items:center;gap:5px}.hub-capability-evidence dd{margin:0;color:var(--secondary);text-align:right}.hub-capability-evidence [data-state=conflict] dd{color:var(--warn)}
+@media(min-width:641px){.hub-table.models-table th:nth-child(1){width:48%}.hub-table.models-table th:nth-child(2){width:11%}.hub-table.models-table th:nth-child(3){width:12%}.hub-table.models-table th:nth-child(4){width:22%}.hub-table.models-table th:nth-child(5){width:7%}.hub-table.models-table td{height:auto;padding-top:12px;padding-bottom:12px}.hub-identity .hub-row-origins{flex-basis:100%}}
+@media(max-width:640px){.hub-identity{gap:5px}.hub-identity .hub-row-origins{flex-basis:100%}.model-badge{font-size:10px;padding:3px 5px}.hub-provenance .hub-channel,.hub-provenance .hub-origin{font-size:9px}.hub-capabilities{margin-top:6px;gap:4px}.hub-table.models-table td.hub-limit.hub-context{grid-column:1;grid-row:2}.hub-table.models-table td.hub-limit.hub-output{grid-column:2;grid-row:2}.hub-table.models-table td.hub-meta{grid-row:3}.hub-table.models-table td.hub-row-action{grid-row:1/4}.hub-table.models-table td.hub-name{grid-column:1/3}.hub-limit::before{font-size:9px}.hub-table .table-footer>span:last-child{max-width:100%;text-align:left}}
+.hub-capability{--accent:var(--good)}.hub-capability.vision{--accent:#4269ad}.hub-capability.reasoning{--accent:#825ca7}
+:root[data-theme=dark] .hub-capability.vision{--accent:#a5bdf1}:root[data-theme=dark] .hub-capability.reasoning{--accent:#c9a9e9}
+
+.hub-capability{min-height:24px}

@@ -31,3 +31,28 @@ export function hubParameterDifference(variants:HubRow[]){return ['context_lengt
 
 // Migrate prior UI-only source choices; never write host configuration.
 export function hubSourceSelection(value:Record<string,string>){return {cn:value.cn||'',intl:value.intl||value.global||''}};
+
+export const modelCapabilities=['vision','tools','reasoning'] as const;
+export type ModelCapability=typeof modelCapabilities[number];
+export type CapabilityState='supported'|'unsupported'|'unknown'|'conflict';
+// Declarations only: never infer capabilities from model names, tags or family.
+export function modelCapabilityState(model:HubRow,capability:ModelCapability):CapabilityState{
+ const flag=capability==='vision'?model.supports_images:capability==='tools'?model.supports_tool_call:model.supports_reasoning;
+ if(capability==='vision'){
+  const evidence=Object.values(model.image_input_sources||{});
+  if(model.image_input_conflict===true||(evidence.includes(true)&&evidence.includes(false)))return 'conflict';
+ }
+ if(capability==='reasoning'){
+  const configured=model.only_reasoning===true||Array.isArray(model.efforts)&&model.efforts.some((x:any)=>['minimal','low','medium','high','xhigh','max','adaptive'].includes(x));
+  if(flag===false&&configured)return 'conflict';
+  if(flag===true||configured)return 'supported';
+ }
+ return flag===true?'supported':flag===false?'unsupported':'unknown';
+}
+export function hubCapabilityBadges(variants:HubRow[]){
+ return modelCapabilities.map(capability=>{const supported=variants.filter(v=>modelCapabilityState(v.model,capability)==='supported');return {capability,supported,total:variants.length,partial:supported.length<variants.length}}).filter(b=>b.supported.length>0);
+}
+// Keep channel and origin paired: CN Dynamic + Intl Custom is not Intl Dynamic.
+export function hubProvenanceBadges(variants:HubRow[]){
+ return hubChannels.flatMap(channel=>['dynamic','custom'].flatMap(origin=>{const matching=variants.filter(v=>v.channel===channel&&v.origin===origin);return matching.length?[{channel,origin,disabled:matching.every(v=>v.model.disabled===true)}]:[]}));
+}

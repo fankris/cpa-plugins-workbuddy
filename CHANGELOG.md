@@ -1,3 +1,7 @@
+# rebuild26 — layered model badges
+
+Paired CN / Intl and Dynamic / Custom provenance; scoped Vision / Tools / Reasoning declaration badges; keyboard-accessible per-source evidence; numeric parameters remain distinct. No routing or credential mutations. See docs/ITERATION-26.md.
+
 # rebuild25 — invariant CN / Intl terminology
 
 Channel names remain CN / Intl across all four UI languages. Product names, model IDs, API fields and user-supplied names are preserved. Existing regional business behavior unchanged. See docs/ITERATION-25.md and docs/TERMINOLOGY.md.
