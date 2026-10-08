@@ -421,6 +421,12 @@ html,body,#root{height:100%;min-height:0}.app-shell{height:100%;min-height:0}
 .capability-scope{display:block;color:var(--secondary);margin:4px 0}.setting-row .setting-state{display:block}.automation-run{border-top:1px solid var(--line);margin-top:20px;padding-top:16px}.automation-run .notice,.activation-result{display:flex;flex-direction:column;gap:6px}.international-business{margin-top:20px;padding:16px;border:1px solid var(--line);border-radius:10px}.international-business p{font-size:var(--text-ui);margin-top:8px}.international-business a{text-decoration:underline;text-underline-offset:3px}.international-business .detail-actions{margin:10px 0;flex-wrap:wrap}
 /* 26: layered model badges. Provenance pairs are never a Cartesian claim. */
 .hub-identity{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;min-width:0}
+/* Explicit per-model enable state. The state used to be visible only inside the
+   model dialog, so the list gave no way to tell enabled from disabled. */
+.hub-state{display:inline-flex;align-items:center;font-size:var(--text-meta);line-height:1.5;padding:1px 7px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
+.hub-state.on{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent);background:var(--goodbg)}
+.hub-state.off{color:var(--secondary);background:var(--muted)}
+
 .hub-identity>strong{min-width:0;overflow-wrap:anywhere}
 .hub-identity .hub-row-origins{display:flex;gap:4px;flex-wrap:wrap;margin:0;min-width:0}
 .model-badge{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;line-height:1.25;font-size:var(--text-meta);white-space:nowrap;font-weight:500;vertical-align:middle}

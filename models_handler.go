@@ -81,6 +81,11 @@ type panelModel struct {
 	ContextLength       int64  `json:"context_length,omitempty"`
 	MaxCompletionTokens int64  `json:"max_completion_tokens,omitempty"`
 	Disabled            bool   `json:"disabled"`
+	// Enabled mirrors Disabled for an explicit, unambiguous panel state.
+	Enabled bool `json:"enabled"`
+	// Source says where the entry came from: directory (live discovery),
+	// builtin (static catalog), remembered (previously discovered) or saved.
+	Source string `json:"source,omitempty"`
 }
 
 // modelsForCredential resolves the models a credential advertises, using the

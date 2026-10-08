@@ -96,7 +96,24 @@ function App(){
 
  function ask(action:string,target:string,fn:()=>Promise<any>,saved=false){if(!connected){setAuthOpen(true);return}setConfirm({action,target,fn,saved})}
  function accountAction(action:string,a:Row){if(action==='refreshQuota'){void readCredits(a.auth_index);return}const target=a.nickname||a.name||a.auth_index;ask(action,target,async()=>{if(action==='pause'||action==='enable')return request('/credentials/status','PATCH',{name:a.name||a.auth_id,auth_index:a.auth_index,disabled:action==='pause'},true);if(action==='keepalive'){await request('/credentials/refresh','POST',{name:a.name||a.auth_id,auth_index:a.auth_index},true);return {ok:true,auth_index:a.auth_index,operation:'host credential refresh'}};return request(action==='select'?'/select':action==='checkin'?'/checkin':action==='trial'?'/trial':'/keepalive','POST',{auth_index:a.auth_index})})}
- function toggleModel(m:Row,after:()=>Promise<void>){ask('toggleModel',m.id,async()=>{const cfg=await patchConfig(current=>{const enabled=new Set<string>(Array.isArray(current.models_enabled)?current.models_enabled:[]),disabled=new Set<string>(Array.isArray(current.models_disabled)?current.models_disabled:[]);if(m.disabled){enabled.add(m.id);disabled.delete(m.id)}else{enabled.delete(m.id);disabled.add(m.id)}return {models_enabled:[...enabled],models_disabled:[...disabled]}});setConfig(cfg);await after();return{saved:true,model:m.id,enabled:m.disabled}},true)}
+ function toggleModel(m:Row,after:()=>Promise<void>){ask('toggleModel',m.id,async()=>{const cfg=await patchConfig(current=>{
+  const enabled=new Set<string>(Array.isArray(current.models_enabled)?current.models_enabled:[]),disabled=new Set<string>(Array.isArray(current.models_disabled)?current.models_disabled:[]);
+  if(m.disabled){enabled.add(m.id);disabled.delete(m.id)}else{enabled.delete(m.id);disabled.add(m.id)}
+  const edits:Record<string,unknown>={models_enabled:[...enabled],models_disabled:[...disabled]};
+  // Enabling a discovered model writes it into the catalog as an explicit entry,
+  // so it stays a first-class model with its real name and limits even when a
+  // later discovery run no longer returns it. Only the flat list shape is
+  // touched: a grouped models.cn / models.intl_global mapping is left alone
+  // rather than being silently flattened.
+  if(m.disabled&&(current.models===undefined||Array.isArray(current.models))){
+    const variant=(Array.isArray(m.variants)?m.variants[0]:null)||{};
+    const channel=variant.channel==='cn'?'cn':'intl_global';
+    const list:Row[]=Array.isArray(current.models)?current.models:[];
+    const rest=list.filter(x=>!x||typeof x!=='object'||String(x.id||'').toLowerCase()!==m.id.toLowerCase());
+    edits.models=[...rest,{id:m.id,name:m.name||m.id,channel,context:Number(m.context_length)||0,max_tokens:Number(m.max_completion_tokens)||0}];
+  }
+  return edits;
+});setConfig(cfg);await after();return{saved:true,model:m.id,enabled:m.disabled}},true)}
  const taskPriority:Record<string,number>={claimable:0,notAccepted:1,accepted:2,claimed:3,locked:4};
  const filteredTasks=taskList.filter(task=>taskMatchesFilter(task,taskFilter)).sort((a,b)=>taskPriority[taskState(a)]-taskPriority[taskState(b)]);
  function taskAction(action:string,task:Row){ask(action,(accounts.find(a=>a.auth_index===taskAccount)?.nickname||taskAccount)+' · '+(task.title||task.task_code),async()=>{const r=await request(action==='claim'?'/tasks/claim':'/tasks/accept','POST',{auth_index:taskAccount,task_code:task.task_code});await loadTasks();return r})}

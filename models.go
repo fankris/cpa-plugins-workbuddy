@@ -491,6 +491,9 @@ func storeDynamicModels(key string, models []pluginapi.ModelInfo, details ...map
 		meta = details[0]
 	}
 	copyModels := append([]pluginapi.ModelInfo(nil), models...)
+	// Remember the metadata of everything discovery has ever returned so an
+	// enabled model keeps its real name/limits even if a later run omits it.
+	rememberKnownModels(copyModels)
 	now := time.Now()
 	dynamicModelsCache.Lock()
 	dynamicModelsCache.realms[key] = realmModelsEntry{models: copyModels, details: meta, fetched: now, source: "discovery"}
@@ -1280,11 +1283,43 @@ func filterExcludedModels(models []pluginapi.ModelInfo, host pluginapi.HostConfi
 	return out
 }
 
+// knownModelMeta remembers the last metadata seen for a model ID. A model the
+// operator enabled stays a first-class catalog entry with its real name and
+// limits even when a later discovery run no longer returns it — without this,
+// an enabled dynamic model degrades into an unnamed "not returned by the
+// current directory" placeholder.
+var (
+	knownModelMetaMu sync.RWMutex
+	knownModelMeta   = map[string]pluginapi.ModelInfo{}
+)
+
+func rememberKnownModels(models []pluginapi.ModelInfo) {
+	knownModelMetaMu.Lock()
+	defer knownModelMetaMu.Unlock()
+	for _, m := range models {
+		key := strings.ToLower(strings.TrimSpace(m.ID))
+		if key == "" {
+			continue
+		}
+		knownModelMeta[key] = m
+	}
+}
+
+func knownModelFor(id string) (pluginapi.ModelInfo, bool) {
+	knownModelMetaMu.RLock()
+	defer knownModelMetaMu.RUnlock()
+	m, ok := knownModelMeta[strings.ToLower(strings.TrimSpace(id))]
+	return m, ok
+}
+
 func handleGlobalModelCatalog() []panelModel {
 	seen := make(map[string]pluginapi.ModelInfo)
 	meta := map[string]modelDetails{}
 	conflict := map[string]bool{}
-	add := func(model pluginapi.ModelInfo) {
+	// source records where each ID came from so the panel can distinguish a
+	// live directory entry from a remembered or merely saved one.
+	source := map[string]string{}
+	add := func(model pluginapi.ModelInfo, from string) {
 		id := strings.TrimSpace(model.ID)
 		key := strings.ToLower(id)
 		if id == "" {
@@ -1293,6 +1328,7 @@ func handleGlobalModelCatalog() []panelModel {
 		if _, exists := seen[key]; !exists {
 			model.ID = id
 			seen[key] = model
+			source[key] = from
 		}
 	}
 	files, err := hostAuthList()
@@ -1308,7 +1344,7 @@ func handleGlobalModelCatalog() []panelModel {
 			}
 			resolved := resolveCredentialModels(pluginContext(), raw, false)
 			for _, model := range resolved.Models {
-				add(model)
+				add(model, "directory")
 				if d, ok := resolved.Details[model.ID]; ok {
 					key := strings.ToLower(model.ID)
 					old, exists := meta[key]
@@ -1323,21 +1359,28 @@ func handleGlobalModelCatalog() []panelModel {
 		}
 	}
 	for _, model := range globalModelRegistryList() {
-		add(model)
+		add(model, "builtin")
 	}
 	// Keep saved enabled/disabled IDs manageable even when the upstream catalog no longer advertises them.
 	savedIDs := append(currentGloballyDisabledModels(), currentGloballyEnabledModels()...)
 	for _, id := range savedIDs {
-		add(pluginapi.ModelInfo{ID: id, Name: "当前目录未返回"})
+		if known, ok := knownModelFor(id); ok {
+			add(known, "remembered")
+			continue
+		}
+		add(pluginapi.ModelInfo{ID: id, Name: "当前目录未返回"}, "saved")
 	}
 	out := make([]panelModel, 0, len(seen))
 	for _, model := range seen {
+		key := strings.ToLower(strings.TrimSpace(model.ID))
 		out = append(out, panelModel{
 			ID:                  model.ID,
 			Name:                model.Name,
 			ContextLength:       model.ContextLength,
 			MaxCompletionTokens: model.MaxCompletionTokens,
 			Disabled:            isGloballyDisabledModel(model.ID),
+			Enabled:             !isGloballyDisabledModel(model.ID),
+			Source:              source[key],
 		})
 	}
 	for i := range out {
