@@ -72,6 +72,11 @@ func staticModelsGlobal() []pluginapi.ModelInfo {
 		{ID: "hy3", Name: "Hy3", ContextLength: 192000, MaxCompletionTokens: 64000, OwnedBy: providerName, SupportedGenerationMethods: []string{"chat"}},
 		{ID: "deepseek-v4.1-flash", Name: "DeepSeek V4.1 Flash", ContextLength: 1000000, MaxCompletionTokens: 128000, OwnedBy: providerName, SupportedGenerationMethods: []string{"chat"}},
 		{ID: "gpt-6-astra", Name: "GPT-6 Astra", ContextLength: 1000000, MaxCompletionTokens: 128000, OwnedBy: providerName, SupportedGenerationMethods: []string{"chat"}},
+		// GPT-6 / GPT-6.1 Sol: upstream promoted the 5.6 Sol line to 6 and 6.1.
+		// Without these IDs in the catalog the panel cannot offer them, and an
+		// opt-in models_enabled list can never contain them.
+		{ID: "gpt-6-sol", Name: "GPT-6 Sol", ContextLength: 1000000, MaxCompletionTokens: 128000, OwnedBy: providerName, SupportedGenerationMethods: []string{"chat"}},
+		{ID: "gpt-6.1-sol", Name: "GPT-6.1 Sol", ContextLength: 1000000, MaxCompletionTokens: 128000, OwnedBy: providerName, SupportedGenerationMethods: []string{"chat"}},
 		{ID: "gpt-5.6-sol", Name: "GPT-5.6 Sol", ContextLength: 1000000, MaxCompletionTokens: 128000, OwnedBy: providerName, SupportedGenerationMethods: []string{"chat"}},
 		{ID: "gpt-5.6-terra", Name: "GPT-5.6 Terra", ContextLength: 1000000, MaxCompletionTokens: 128000, OwnedBy: providerName, SupportedGenerationMethods: []string{"chat"}},
 		{ID: "gpt-5.6-luna", Name: "GPT-5.6 Luna", ContextLength: 1000000, MaxCompletionTokens: 128000, OwnedBy: providerName, SupportedGenerationMethods: []string{"chat"}},

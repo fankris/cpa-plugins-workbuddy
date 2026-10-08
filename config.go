@@ -92,6 +92,10 @@ func prettifyModelName(id string) string {
 	switch strings.ToLower(id) {
 	case "gpt-6-astra":
 		return "GPT-6 Astra"
+	case "gpt-6-sol":
+		return "GPT-6 Sol"
+	case "gpt-6.1-sol":
+		return "GPT-6.1 Sol"
 	case "gpt-5.6-sol":
 		return "GPT-5.6 Sol"
 	case "deepseek-v4.1-flash":
