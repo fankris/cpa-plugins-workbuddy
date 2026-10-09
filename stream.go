@@ -497,6 +497,20 @@ func messageHasModelOutput(m map[string]any) bool {
 			}
 		}
 	}
+	// Any other non-empty delta field is model output too. Upstream streams
+	// reasoning under names this list cannot enumerate (thinking,
+	// reasoning_summary, and whatever ships next); classifying those as "no
+	// output" made the plugin raise an empty-answer error mid-stream, and the
+	// client reported a truncated response instead of a completed one.
+	for key, v := range m {
+		switch key {
+		case "role", "index", "logprobs", "refusal", "extra_fields":
+			continue
+		}
+		if !isEmptyValue(v) {
+			return true
+		}
+	}
 	return false
 }
 
@@ -549,8 +563,13 @@ func aggregateCompletion(r io.Reader, model string) ([]byte, error) {
 				if v, ok := delta["content"].(string); ok {
 					content += v
 				}
-				if v, ok := delta["reasoning_content"].(string); ok {
-					reasoning += v
+				// Reasoning arrives under several names across upstream builds;
+				// folding only reasoning_content lost whole answers from models
+				// that stream "reasoning", "thinking" or "reasoning_summary".
+				for _, key := range []string{"reasoning_content", "reasoning", "thinking", "reasoning_summary"} {
+					if v, ok := delta[key].(string); ok {
+						reasoning += v
+					}
 				}
 				if tcs, ok := delta["tool_calls"].([]any); ok {
 					for _, tc := range tcs {
