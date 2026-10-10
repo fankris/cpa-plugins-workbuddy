@@ -70,7 +70,15 @@ var defaultDailyFreeLimits = map[string]int64{
 
 const (
 	// dailyQuotaFileName is the persistence file under the host auth dir.
-	dailyQuotaFileName = "workbuddy-daily-quota.json"
+	//
+	// It deliberately does NOT end in ".json". The host scans the auth dir for
+	// *.json and tries to synthesise a credential from every match, so the old
+	// .json name made CPA log "skipping auth file workbuddy-daily-quota.json" on
+	// every rescan and list the file as an auth entry with an empty type.
+	dailyQuotaFileName = "workbuddy-daily-quota.state"
+	// legacyDailyQuotaFileName is the pre-1.0.65 name. It is read once, rewritten
+	// under the new name and removed, so an existing auth dir stops showing it.
+	legacyDailyQuotaFileName = "workbuddy-daily-quota.json"
 	// dailyQuotaRetainDays bounds how many past days are kept on disk. Only
 	// today's bucket is displayed; older ones are kept briefly so a request
 	// straddling midnight still finds its bucket, then pruned.
@@ -158,7 +166,29 @@ func setDailyQuotaPath(authDir string) {
 	dailyQuotaPath = path
 	dailyQuotaMu.Unlock()
 
+	migrateLegacyDailyQuotaFile(authDir, path)
 	loadDailyQuotaFile(path)
+}
+
+// migrateLegacyDailyQuotaFile moves the pre-1.0.65 ".json" state file onto the
+// new extension. Leaving it in place kept the host's auth-dir scan logging
+// "skipping auth file" and listing a typeless entry among the credentials.
+func migrateLegacyDailyQuotaFile(authDir, path string) {
+	legacy := filepath.Join(authDir, legacyDailyQuotaFileName)
+	if _, errStat := os.Stat(legacy); errStat != nil {
+		return
+	}
+	if _, errStat := os.Stat(path); errStat == nil {
+		// The new file already exists, so the legacy one is stale leftover.
+		_ = os.Remove(legacy)
+		return
+	}
+	raw, errRead := os.ReadFile(legacy)
+	if errRead != nil {
+		return
+	}
+	writeFileAtomic(path, raw)
+	_ = os.Remove(legacy)
 }
 
 // normalizeModelKey lowercases and trims a model ID so config keys and upstream
