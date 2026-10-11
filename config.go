@@ -606,6 +606,8 @@ func configure(raw []byte) {
 	nextSchedulerMode := schedulerModeHost // reset to default on reconfigure
 	nextKeepaliveAuto := false
 	nextLoginPlatform := "CLI"
+	nextDailyQuotaPersist := true
+	nextDailyQuotaStateRoot := ""
 	nextLoginRegion := regionCN
 	nextGrowthAuto := false
 	nextTravelAuto := false
@@ -638,6 +640,12 @@ func configure(raw []byte) {
 			nextGrowthAuto = false
 			nextTravelAuto = cfg.boolValue("travel_auto", nextTravelAuto)
 			nextKeepaliveAuto = cfg.boolValue("token_keepalive", nextKeepaliveAuto)
+			// Plugin state lives in its own directory; the host auth dir is only
+			// scanned for credentials, never used for bookkeeping.
+			nextDailyQuotaPersist = cfg.boolValue("daily_quota_persist", nextDailyQuotaPersist)
+			if stateDir := cfg.raw("daily_quota_state_dir"); stateDir != "" {
+				nextDailyQuotaStateRoot = stateDir
+			}
 
 			if cfg.equalsFold("scheduler_mode", schedulerModeBuiltin, schedulerModeOff) {
 				nextSchedulerMode = schedulerModeBuiltin
@@ -700,6 +708,9 @@ func configure(raw []byte) {
 	keepaliveAutoMu.Lock()
 	keepaliveAuto = nextKeepaliveAuto
 	keepaliveAutoMu.Unlock()
+
+	setDailyQuotaPersist(nextDailyQuotaPersist)
+	setDailyQuotaStateRoot(nextDailyQuotaStateRoot)
 
 	growthAutoMu.Lock()
 	growthAuto = nextGrowthAuto

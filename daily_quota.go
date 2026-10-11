@@ -147,16 +147,71 @@ func setDailyFreeLimits(overrides map[string]int64) {
 	}
 }
 
-// setDailyQuotaPath points persistence at the host auth dir. Called from the
-// model-discovery handlers, which are the only RPCs carrying Host.AuthDir; an
-// empty dir disables persistence rather than writing to the process working
-// directory (the plugin has no other way to learn a writable location).
+// Plugin-owned state. The host exposes only Host.AuthDir, and writing plugin
+// state there made CPA synthesise a credential from the file on every rescan
+// ("skipping auth file ...") and list it among the credentials. The state now
+// lives in the plugin's own directory; the auth dir is touched once, only to
+// carry an existing file over and delete it.
+var (
+	dailyQuotaPersist   = true
+	dailyQuotaStateRoot string
+)
+
+// setDailyQuotaPersist toggles on-disk persistence. Off means the counters live
+// in memory only: nothing is created anywhere, at the cost of a restart
+// resetting the day's measured usage.
+func setDailyQuotaPersist(enabled bool) {
+	dailyQuotaMu.Lock()
+	dailyQuotaPersist = enabled
+	if !enabled {
+		dailyQuotaPath = ""
+	}
+	dailyQuotaMu.Unlock()
+}
+
+// setDailyQuotaStateRoot overrides where the state file lives. An empty value
+// restores the default (the plugin's own cache directory).
+func setDailyQuotaStateRoot(dir string) {
+	dailyQuotaMu.Lock()
+	dailyQuotaStateRoot = strings.TrimSpace(dir)
+	dailyQuotaMu.Unlock()
+}
+
+// dailyQuotaStateDir resolves the plugin-owned directory for its own state.
+// It never returns the host auth dir: that directory is scanned for *.json and
+// is not a place for a plugin to keep bookkeeping.
+func dailyQuotaStateDir() string {
+	dailyQuotaMu.Lock()
+	override := dailyQuotaStateRoot
+	dailyQuotaMu.Unlock()
+	if override != "" {
+		return override
+	}
+	base, err := os.UserCacheDir()
+	if err != nil || strings.TrimSpace(base) == "" {
+		return ""
+	}
+	return filepath.Join(base, "cpa-workbuddy")
+}
+
+// setDailyQuotaPath is called from the model-discovery handlers, which are the
+// only RPCs carrying Host.AuthDir. The auth dir is used solely to migrate a
+// file left there by an older build; it is never written to.
 func setDailyQuotaPath(authDir string) {
 	authDir = strings.TrimSpace(authDir)
-	if authDir == "" {
+
+	dailyQuotaMu.Lock()
+	persist := dailyQuotaPersist
+	dailyQuotaMu.Unlock()
+	if !persist {
 		return
 	}
-	path := filepath.Join(authDir, dailyQuotaFileName)
+	dir := dailyQuotaStateDir()
+	if dir == "" {
+		// No writable location: stay in memory rather than guessing a path.
+		return
+	}
+	path := filepath.Join(dir, dailyQuotaFileName)
 
 	dailyQuotaMu.Lock()
 	if dailyQuotaPath == path {
@@ -166,29 +221,41 @@ func setDailyQuotaPath(authDir string) {
 	dailyQuotaPath = path
 	dailyQuotaMu.Unlock()
 
-	migrateLegacyDailyQuotaFile(authDir, path)
+	if authDir != "" {
+		migrateLegacyDailyQuotaFiles(authDir, path)
+	}
 	loadDailyQuotaFile(path)
 }
 
-// migrateLegacyDailyQuotaFile moves the pre-1.0.65 ".json" state file onto the
-// new extension. Leaving it in place kept the host's auth-dir scan logging
-// "skipping auth file" and listing a typeless entry among the credentials.
-func migrateLegacyDailyQuotaFile(authDir, path string) {
-	legacy := filepath.Join(authDir, legacyDailyQuotaFileName)
-	if _, errStat := os.Stat(legacy); errStat != nil {
-		return
-	}
-	if _, errStat := os.Stat(path); errStat == nil {
-		// The new file already exists, so the legacy one is stale leftover.
+// migrateLegacyDailyQuotaFiles carries state out of the host auth dir and
+// removes the file from it. Both the pre-1.0.65 ".json" name and the 1.0.65
+// ".state" name are handled, because the auth dir must end up clean either way.
+// A file is only removed once its content is safely at the new location.
+func migrateLegacyDailyQuotaFiles(authDir, path string) {
+	for _, name := range []string{legacyDailyQuotaFileName, dailyQuotaFileName} {
+		legacy := filepath.Join(authDir, name)
+		// Never treat the destination as a source: when an operator points
+		// daily_quota_state_dir at the auth dir, the second pass would
+		// otherwise delete the file the first pass just wrote.
+		if filepath.Clean(legacy) == filepath.Clean(path) {
+			continue
+		}
+		raw, errRead := os.ReadFile(legacy)
+		if errRead != nil {
+			continue
+		}
+		if _, errStat := os.Stat(path); errStat == nil {
+			// The new location already holds state; the auth-dir copy is
+			// leftover from an older build and must simply go away.
+			_ = os.Remove(legacy)
+			continue
+		}
+		if errWrite := writeFileAtomic(path, raw); errWrite != nil {
+			// Keep the auth-dir copy: dropping it would lose the counters.
+			continue
+		}
 		_ = os.Remove(legacy)
-		return
 	}
-	raw, errRead := os.ReadFile(legacy)
-	if errRead != nil {
-		return
-	}
-	writeFileAtomic(path, raw)
-	_ = os.Remove(legacy)
 }
 
 // normalizeModelKey lowercases and trims a model ID so config keys and upstream
@@ -357,18 +424,20 @@ func persistDailyQuota(path string) {
 	if err != nil {
 		return
 	}
-	writeFileAtomic(path, raw)
+	_ = writeFileAtomic(path, raw)
 }
 
 // writeFileAtomic writes raw to path via a temp file in the same directory.
-func writeFileAtomic(path string, raw []byte) {
+// It reports failure so a caller that is about to discard another copy of the
+// data (the legacy-file migration) can keep it instead of losing it.
+func writeFileAtomic(path string, raw []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return
+		return err
 	}
 	tmp, err := os.CreateTemp(dir, dailyQuotaFileName+".tmp*")
 	if err != nil {
-		return
+		return err
 	}
 	tmpName := tmp.Name()
 	defer func() {
@@ -376,15 +445,15 @@ func writeFileAtomic(path string, raw []byte) {
 	}()
 	if _, err := tmp.Write(raw); err != nil {
 		_ = tmp.Close()
-		return
+		return err
 	}
 	if err := tmp.Close(); err != nil {
-		return
+		return err
 	}
 	// 0600: the file holds per-credential usage counts, not secrets, but it
 	// lives beside auth material and there is no reason for it to be readable.
 	_ = os.Chmod(tmpName, 0o600)
-	_ = os.Rename(tmpName, path)
+	return os.Rename(tmpName, path)
 }
 
 // loadDailyQuotaFile merges persisted counters into the in-memory store.
