@@ -140,6 +140,10 @@ func (s *pluginAsyncStream) finish() {
 }
 
 func quiescePlugin() {
+	// Persist counters before anything is torn down: the flusher goroutine is
+	// cancelled with the root context, and an unflushed window would be lost.
+	flushDailyQuotaSync()
+
 	pluginLifecycleMu.Lock()
 	if !pluginQuiescingState {
 		pluginQuiescingState = true

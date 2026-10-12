@@ -30,7 +30,10 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -113,9 +116,24 @@ var (
 	// effective value would be right but a naive "is it in defaults?" check
 	// would label an operator's override as "default".
 	dailyQuotaOverridden = map[string]struct{}{}
-	// dailyQuotaPath is where the store is persisted; empty disables persistence
-	// (tests, or a host that never reported an auth dir).
+	// dailyQuotaPath is the legacy single-file location. It is only read once,
+	// to migrate an older build's data into per-account shards.
 	dailyQuotaPath string
+	// dailyQuotaUsageDir holds one file per account. Writing a shard costs one
+	// small file instead of re-serialising every account on every request.
+	dailyQuotaUsageDir string
+	// dailyQuotaDirty names the accounts whose counters changed since the last
+	// flush. Guarded by dailyQuotaMu.
+	dailyQuotaDirty = map[string]struct{}{}
+	// dailyQuotaFlush wakes the single writer goroutine. Buffered so recording a
+	// usage never blocks on the flusher.
+	dailyQuotaFlush = make(chan struct{}, 1)
+	// dailyQuotaFlusherOnce starts the writer goroutine exactly once.
+	dailyQuotaFlusherOnce sync.Once
+	// dailyQuotaFlushInterval bounds how long a counter can sit only in memory.
+	// A crash can therefore lose at most this window, which is acceptable for a
+	// usage display that is recomputed from live traffic.
+	dailyQuotaFlushInterval = 5 * time.Second
 	// dailyQuotaNow is a test seam for the day boundary.
 	dailyQuotaNow = time.Now
 )
@@ -211,20 +229,23 @@ func setDailyQuotaPath(authDir string) {
 		// No writable location: stay in memory rather than guessing a path.
 		return
 	}
-	path := filepath.Join(dir, dailyQuotaFileName)
+	usageDir := filepath.Join(dir, "usage")
+	legacyPath := filepath.Join(dir, dailyQuotaFileName)
 
 	dailyQuotaMu.Lock()
-	if dailyQuotaPath == path {
+	if dailyQuotaUsageDir == usageDir {
 		dailyQuotaMu.Unlock()
 		return
 	}
-	dailyQuotaPath = path
+	dailyQuotaUsageDir = usageDir
+	dailyQuotaPath = legacyPath
 	dailyQuotaMu.Unlock()
 
 	if authDir != "" {
-		migrateLegacyDailyQuotaFiles(authDir, path)
+		migrateLegacyDailyQuotaFiles(authDir, legacyPath)
 	}
-	loadDailyQuotaFile(path)
+	loadDailyQuotaState(usageDir, legacyPath)
+	startDailyQuotaFlusher()
 }
 
 // migrateLegacyDailyQuotaFiles carries state out of the host auth dir and
@@ -245,9 +266,12 @@ func migrateLegacyDailyQuotaFiles(authDir, path string) {
 			continue
 		}
 		if _, errStat := os.Stat(path); errStat == nil {
-			// The new location already holds state; the auth-dir copy is
-			// leftover from an older build and must simply go away.
-			_ = os.Remove(legacy)
+			// The destination already holds state. MERGE rather than drop: the
+			// auth-dir copy can carry counters the destination does not, and
+			// deleting it outright lost a whole account's usage.
+			if mergeQuotaStateFiles(path, legacy) {
+				_ = os.Remove(legacy)
+			}
 			continue
 		}
 		if errWrite := writeFileAtomic(path, raw); errWrite != nil {
@@ -337,10 +361,18 @@ func recordDailyUsage(record pluginapi.UsageRecord) {
 		usage.Failed++
 	}
 	pruneDailyQuotaLocked(key.Day)
-	path := dailyQuotaPath
+	// Mark the account dirty instead of writing here: the previous code
+	// re-serialised EVERY account on EVERY request, and because the snapshot was
+	// taken under the lock but written outside it, two concurrent requests could
+	// rename their temp files out of order and an older snapshot could win.
+	dailyQuotaDirty[authID] = struct{}{}
 	dailyQuotaMu.Unlock()
 
-	persistDailyQuota(path)
+	startDailyQuotaFlusher()
+	select {
+	case dailyQuotaFlush <- struct{}{}:
+	default: // a flush is already pending; it will pick this change up
+	}
 }
 
 // isWorkBuddyUsage reports whether a usage record came from this provider.
@@ -392,39 +424,186 @@ type dailyQuotaFileEntry struct {
 	dailyUsage
 }
 
-// persistDailyQuota writes the store atomically (temp file + rename) so a crash
-// mid-write cannot leave a truncated JSON file that fails to load and silently
-// zeroes the day's counters.
-func persistDailyQuota(path string) {
-	if strings.TrimSpace(path) == "" {
+// startDailyQuotaFlusher starts the single writer goroutine. One goroutine
+// performs every write, so flushes are serialised and no two writers can rename
+// their temp files out of order.
+func startDailyQuotaFlusher() {
+	dailyQuotaFlusherOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(dailyQuotaFlushInterval)
+			defer ticker.Stop()
+			ctx := pluginContext()
+			for {
+				select {
+				case <-ctx.Done():
+					flushDailyQuota()
+					return
+				case <-dailyQuotaFlush:
+				case <-ticker.C:
+				}
+				flushDailyQuota()
+			}
+		}()
+	})
+}
+
+// flushDailyQuota writes one small file per dirty account and clears the dirty
+// set. A failed write re-marks its account so the next tick retries rather than
+// dropping the counters.
+func flushDailyQuota() {
+	dailyQuotaMu.Lock()
+	if len(dailyQuotaDirty) == 0 || dailyQuotaUsageDir == "" {
+		dailyQuotaMu.Unlock()
 		return
 	}
-	dailyQuotaMu.Lock()
-	entries := make([]dailyQuotaFileEntry, 0, len(dailyQuotaStore))
+	dirty := dailyQuotaDirty
+	dailyQuotaDirty = map[string]struct{}{}
+	dir := dailyQuotaUsageDir
+	byAuth := make(map[string][]dailyQuotaFileEntry, len(dirty))
 	for key, usage := range dailyQuotaStore {
-		entries = append(entries, dailyQuotaFileEntry{
+		if _, ok := dirty[key.AuthID]; !ok {
+			continue
+		}
+		byAuth[key.AuthID] = append(byAuth[key.AuthID], dailyQuotaFileEntry{
 			AuthID: key.AuthID, Model: key.Model, Day: key.Day, dailyUsage: *usage,
 		})
 	}
 	dailyQuotaMu.Unlock()
 
-	// Stable ordering keeps the file diff-friendly and makes tests deterministic.
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].Day != entries[j].Day {
-			return entries[i].Day < entries[j].Day
+	for authID, entries := range byAuth {
+		// Stable ordering keeps each shard diff-friendly and tests deterministic.
+		sort.Slice(entries, func(i, j int) bool {
+			if entries[i].Day != entries[j].Day {
+				return entries[i].Day < entries[j].Day
+			}
+			return entries[i].Model < entries[j].Model
+		})
+		raw, errMarshal := json.Marshal(dailyQuotaFile{Version: 1, Usage: entries})
+		if errMarshal != nil {
+			continue
 		}
-		if entries[i].AuthID != entries[j].AuthID {
-			return entries[i].AuthID < entries[j].AuthID
+		if errWrite := writeFileAtomic(filepath.Join(dir, quotaShardName(authID)), raw); errWrite != nil {
+			dailyQuotaMu.Lock()
+			dailyQuotaDirty[authID] = struct{}{}
+			dailyQuotaMu.Unlock()
 		}
-		return entries[i].Model < entries[j].Model
-	})
-
-	payload := dailyQuotaFile{Version: 1, Usage: entries}
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		return
 	}
-	_ = writeFileAtomic(path, raw)
+}
+
+// flushDailyQuotaSync is the shutdown path: counters must not be left only in
+// memory when the process is about to end.
+func flushDailyQuotaSync() {
+	flushDailyQuota()
+}
+
+// mergeQuotaStateFiles folds src's counters into dst and rewrites dst. Counters
+// are summed by (auth, model, day), so a copy left in the auth dir by an older
+// build is absorbed instead of discarded. It reports whether dst now holds src's
+// data, which is what lets the caller delete src safely.
+func mergeQuotaStateFiles(dst, src string) bool {
+	srcRaw, errSrc := os.ReadFile(src)
+	if errSrc != nil {
+		return false
+	}
+	var srcPayload dailyQuotaFile
+	if json.Unmarshal(srcRaw, &srcPayload) != nil {
+		// Unreadable content: keep the file so an operator can inspect it.
+		return false
+	}
+	if len(srcPayload.Usage) == 0 {
+		// Valid but empty: nothing to lose, so the copy may go.
+		return true
+	}
+	var dstPayload dailyQuotaFile
+	if dstRaw, errDst := os.ReadFile(dst); errDst == nil {
+		_ = json.Unmarshal(dstRaw, &dstPayload)
+	}
+	index := make(map[string]int, len(dstPayload.Usage))
+	for i, entry := range dstPayload.Usage {
+		index[quotaEntryKey(entry)] = i
+	}
+	absorbed := false
+	for _, entry := range srcPayload.Usage {
+		if entry.AuthID == "" || entry.Model == "" || entry.Day == "" {
+			continue
+		}
+		key := quotaEntryKey(entry)
+		if i, ok := index[key]; ok {
+			dstPayload.Usage[i].InputTokens += entry.InputTokens
+			dstPayload.Usage[i].OutputTokens += entry.OutputTokens
+			dstPayload.Usage[i].TotalTokens += entry.TotalTokens
+			dstPayload.Usage[i].Requests += entry.Requests
+			dstPayload.Usage[i].Failed += entry.Failed
+		} else {
+			index[key] = len(dstPayload.Usage)
+			dstPayload.Usage = append(dstPayload.Usage, entry)
+		}
+		absorbed = true
+	}
+	if !absorbed {
+		// Every entry was unusable; keep the file rather than silently drop it.
+		return false
+	}
+	dstPayload.Version = 1
+	raw, errMarshal := json.Marshal(dstPayload)
+	if errMarshal != nil {
+		return false
+	}
+	return writeFileAtomic(dst, raw) == nil
+}
+
+func quotaEntryKey(entry dailyQuotaFileEntry) string {
+	return entry.AuthID + "\x00" + normalizeModelKey(entry.Model) + "\x00" + entry.Day
+}
+
+// quotaShardName maps an auth ID to a shard file name. An already-safe ID is
+// used verbatim so the file is recognisable; anything else is sanitised and
+// suffixed with a hash so two different IDs can never collide onto one file.
+func quotaShardName(authID string) string {
+	if quotaSafeShardName(authID) {
+		// Auth IDs are often already file names (workbuddy-<uid>.json); do not
+		// double the extension.
+		if strings.HasSuffix(strings.ToLower(authID), ".json") {
+			return authID
+		}
+		return authID + ".json"
+	}
+	sum := sha256.Sum256([]byte(authID))
+	return fmt.Sprintf("%s-%s.json", sanitizeShardStem(authID), hex.EncodeToString(sum[:4]))
+}
+
+func quotaSafeShardName(authID string) bool {
+	if authID == "" || len(authID) > 120 || strings.Contains(authID, "..") {
+		return false
+	}
+	for _, r := range authID {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '-', r == '_', r == '.':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func sanitizeShardStem(authID string) string {
+	var b strings.Builder
+	for _, r := range authID {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+		if b.Len() >= 48 {
+			break
+		}
+	}
+	if b.Len() == 0 {
+		return "account"
+	}
+	return b.String()
 }
 
 // writeFileAtomic writes raw to path via a temp file in the same directory.
@@ -459,14 +638,47 @@ func writeFileAtomic(path string, raw []byte) error {
 // loadDailyQuotaFile merges persisted counters into the in-memory store.
 // Counters are summed rather than replaced: a reload during the same day should
 // not lose what the previous process measured.
-func loadDailyQuotaFile(path string) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
+// loadDailyQuotaState restores counters from the per-account shards, then
+// absorbs the legacy single file (splitting it into shards) and removes it.
+func loadDailyQuotaState(usageDir, legacyPath string) {
+	if entries, errRead := os.ReadDir(usageDir); errRead == nil {
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(strings.ToLower(entry.Name()), ".json") {
+				continue
+			}
+			raw, errFile := os.ReadFile(filepath.Join(usageDir, entry.Name()))
+			if errFile != nil {
+				continue
+			}
+			mergeDailyQuotaPayload(raw)
+		}
+	}
+	raw, errLegacy := os.ReadFile(legacyPath)
+	if errLegacy != nil {
 		return
 	}
+	if !mergeDailyQuotaPayload(raw) {
+		return
+	}
+	// The legacy file's counters now live in memory; mark them dirty so the next
+	// flush writes shards, and only then drop the old file.
+	dailyQuotaMu.Lock()
+	for key := range dailyQuotaStore {
+		dailyQuotaDirty[key.AuthID] = struct{}{}
+	}
+	dailyQuotaMu.Unlock()
+	flushDailyQuota()
+	_ = os.Remove(legacyPath)
+}
+
+// mergeDailyQuotaPayload folds one state payload into the in-memory store.
+// Counters are summed rather than replaced: a reload during the same day must
+// not lose what the previous process measured. It reports whether any usable
+// entry was merged, so the caller can tell real data from a corrupt file.
+func mergeDailyQuotaPayload(raw []byte) bool {
 	var payload dailyQuotaFile
 	if json.Unmarshal(raw, &payload) != nil {
-		return
+		return false
 	}
 	today := dailyQuotaNow().Local().Format("2006-01-02")
 	cutoff := today
@@ -474,6 +686,7 @@ func loadDailyQuotaFile(path string) {
 		cutoff = t.AddDate(0, 0, -dailyQuotaRetainDays).Format("2006-01-02")
 	}
 
+	merged := false
 	dailyQuotaMu.Lock()
 	defer dailyQuotaMu.Unlock()
 	for _, entry := range payload.Usage {
@@ -491,7 +704,9 @@ func loadDailyQuotaFile(path string) {
 		usage.TotalTokens += entry.TotalTokens
 		usage.Requests += entry.Requests
 		usage.Failed += entry.Failed
+		merged = true
 	}
+	return merged
 }
 
 // ---------------------------------------------------------------------------
@@ -626,9 +841,11 @@ func resetDailyQuota(authID string) {
 			continue
 		}
 		delete(dailyQuotaStore, key)
+		if authID == "" || key.AuthID == authID {
+			dailyQuotaDirty[key.AuthID] = struct{}{}
+		}
 	}
-	path := dailyQuotaPath
 	dailyQuotaMu.Unlock()
 
-	persistDailyQuota(path)
+	flushDailyQuota()
 }

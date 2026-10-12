@@ -2,8 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,14 +26,16 @@ func resetDailyQuotaState(t *testing.T) {
 	t.Helper()
 	dailyQuotaMu.Lock()
 	dailyQuotaStore = map[dailyQuotaKey]*dailyUsage{}
-	path := dailyQuotaPath
-	dailyQuotaPath = ""
+	dailyQuotaDirty = map[string]struct{}{}
+	path, usageDir := dailyQuotaPath, dailyQuotaUsageDir
+	dailyQuotaPath, dailyQuotaUsageDir = "", ""
 	dailyQuotaMu.Unlock()
 	setDailyFreeLimits(nil)
 	t.Cleanup(func() {
 		dailyQuotaMu.Lock()
 		dailyQuotaStore = map[dailyQuotaKey]*dailyUsage{}
-		dailyQuotaPath = path
+		dailyQuotaDirty = map[string]struct{}{}
+		dailyQuotaPath, dailyQuotaUsageDir = path, usageDir
 		dailyQuotaMu.Unlock()
 		setDailyFreeLimits(nil)
 	})
@@ -299,22 +304,23 @@ func dailyQuotaLimitFor(model string) int64 {
 func TestDailyQuotaPersistsAcrossReload(t *testing.T) {
 	resetDailyQuotaState(t)
 	dir := t.TempDir()
-	path := filepath.Join(dir, dailyQuotaFileName)
+	usageDir := filepath.Join(dir, "usage")
 
 	dailyQuotaMu.Lock()
-	dailyQuotaPath = path
+	dailyQuotaUsageDir = usageDir
 	dailyQuotaMu.Unlock()
 
 	recordDailyUsage(usageRecord("acct-p", "deepseek-v4.1-flash", 4242))
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("counter file not written: %v", err)
+	flushDailyQuota()
+	if _, err := os.Stat(filepath.Join(usageDir, quotaShardName("acct-p"))); err != nil {
+		t.Fatalf("account shard not written: %v", err)
 	}
 
-	// Simulate a reload: drop memory, keep the file.
+	// Simulate a reload: drop memory, keep the shards.
 	dailyQuotaMu.Lock()
 	dailyQuotaStore = map[dailyQuotaKey]*dailyUsage{}
 	dailyQuotaMu.Unlock()
-	loadDailyQuotaFile(path)
+	loadDailyQuotaState(usageDir, filepath.Join(dir, dailyQuotaFileName))
 
 	rows := dailyQuotaSnapshotForAuth("acct-p")
 	for _, row := range rows {
@@ -338,7 +344,10 @@ func TestLoadDailyQuotaFileIgnoresStaleAndCorruptInput(t *testing.T) {
 	if err := os.WriteFile(corrupt, []byte("{not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	loadDailyQuotaFile(corrupt) // must not panic
+	corruptRaw, _ := os.ReadFile(corrupt)
+	if mergeDailyQuotaPayload(corruptRaw) {
+		t.Fatal("corrupt payload must not report a merge")
+	}
 	// The corrupt file must contribute no USAGE. Known models are still listed
 	// (with zero usage) by design, so assert on usage rather than on row count.
 	for _, row := range dailyQuotaSnapshotForAuth("acct-c") {
@@ -356,7 +365,7 @@ func TestLoadDailyQuotaFileIgnoresStaleAndCorruptInput(t *testing.T) {
 	if err := os.WriteFile(stale, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	loadDailyQuotaFile(stale)
+	mergeDailyQuotaPayload(raw)
 	for _, row := range dailyQuotaSnapshotForAuth("acct-s") {
 		if row.Model == "glm-5.2" && row.Used != 0 {
 			t.Fatalf("stale day merged into today: %d", row.Used)
@@ -610,4 +619,124 @@ func TestChineseSuffixOverrideActuallyApplies(t *testing.T) {
 		return
 	}
 	t.Fatal("row missing")
+}
+
+// Recording usage must not touch the disk: the previous implementation
+// re-serialised every account on every request.
+func TestRecordDailyUsageDoesNotWriteImmediately(t *testing.T) {
+	resetDailyQuotaState(t)
+	usageDir := filepath.Join(t.TempDir(), "usage")
+	dailyQuotaMu.Lock()
+	dailyQuotaUsageDir = usageDir
+	dailyQuotaMu.Unlock()
+
+	for i := 0; i < 20; i++ {
+		recordDailyUsage(usageRecord("acct-d", "deepseek-v4.1-flash", 100))
+	}
+	if _, err := os.Stat(usageDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("recording usage created files before a flush: %v", err)
+	}
+
+	flushDailyQuota()
+	if _, err := os.Stat(filepath.Join(usageDir, quotaShardName("acct-d"))); err != nil {
+		t.Fatalf("flush did not write the shard: %v", err)
+	}
+}
+
+// Each account gets its own shard, so a flush rewrites one small file instead of
+// the whole store.
+func TestFlushWritesOneShardPerAccount(t *testing.T) {
+	resetDailyQuotaState(t)
+	usageDir := filepath.Join(t.TempDir(), "usage")
+	dailyQuotaMu.Lock()
+	dailyQuotaUsageDir = usageDir
+	dailyQuotaMu.Unlock()
+
+	recordDailyUsage(usageRecord("acct-a", "deepseek-v4.1-flash", 10))
+	recordDailyUsage(usageRecord("acct-b", "glm-5.2", 20))
+	flushDailyQuota()
+
+	entries, err := os.ReadDir(usageDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected one shard per account, got %d: %v", len(entries), entries)
+	}
+
+	// A reload must restore both accounts from their shards.
+	dailyQuotaMu.Lock()
+	dailyQuotaStore = map[dailyQuotaKey]*dailyUsage{}
+	dailyQuotaMu.Unlock()
+	loadDailyQuotaState(usageDir, filepath.Join(t.TempDir(), dailyQuotaFileName))
+
+	for auth, want := range map[string]int64{"acct-a": 10, "acct-b": 20} {
+		found := false
+		for _, row := range dailyQuotaSnapshotForAuth(auth) {
+			if row.Used == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("%s usage %d not restored", auth, want)
+		}
+	}
+}
+
+// Concurrent usage records must all survive a flush: the old code snapshotted
+// under the lock but wrote outside it, so an older snapshot could rename last.
+func TestConcurrentUsageIsNotLost(t *testing.T) {
+	resetDailyQuotaState(t)
+	usageDir := filepath.Join(t.TempDir(), "usage")
+	dailyQuotaMu.Lock()
+	dailyQuotaUsageDir = usageDir
+	dailyQuotaMu.Unlock()
+
+	const workers, perWorker = 8, 25
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < perWorker; i++ {
+				recordDailyUsage(usageRecord("acct-c", "deepseek-v4.1-flash", 1))
+			}
+		}()
+	}
+	wg.Wait()
+	flushDailyQuota()
+
+	dailyQuotaMu.Lock()
+	dailyQuotaStore = map[dailyQuotaKey]*dailyUsage{}
+	dailyQuotaMu.Unlock()
+	loadDailyQuotaState(usageDir, filepath.Join(t.TempDir(), dailyQuotaFileName))
+
+	want := int64(workers * perWorker)
+	for _, row := range dailyQuotaSnapshotForAuth("acct-c") {
+		if row.Model == "deepseek-v4.1-flash" {
+			if row.Used != want {
+				t.Fatalf("usage lost under concurrency: got %d want %d", row.Used, want)
+			}
+			return
+		}
+	}
+	t.Fatal("row missing after concurrent flush")
+}
+
+// An auth ID that is not filename-safe must still map to a stable, unique file.
+func TestQuotaShardNameIsSafeAndUnique(t *testing.T) {
+	unsafeID := "../../etc/passwd"
+	name := quotaShardName(unsafeID)
+	if strings.Contains(name, "/") || strings.Contains(name, "..") {
+		t.Fatalf("unsafe shard name %q", name)
+	}
+	if name != quotaShardName(unsafeID) {
+		t.Fatal("shard name is not stable")
+	}
+	if name == quotaShardName(unsafeID+"x") {
+		t.Fatal("different auth IDs collided onto one shard")
+	}
+	if got := quotaShardName("workbuddy-abc.json"); got != "workbuddy-abc.json" {
+		t.Fatalf("safe id should be used verbatim, got %q", got)
+	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -61,11 +62,62 @@ func TestMigrateLegacyDailyQuotaFileKeepsNewerState(t *testing.T) {
 	migrateLegacyDailyQuotaFiles(dir, next)
 
 	if _, err := os.Stat(legacy); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("stale legacy file must be removed")
+		t.Fatal("an empty legacy file must be removed")
 	}
 	raw, _ := os.ReadFile(next)
 	if !strings.Contains(string(raw), "new") {
 		t.Fatalf("existing new-format state was overwritten: %s", raw)
+	}
+}
+
+// A non-empty copy in the auth dir must be MERGED into the destination, not
+// dropped: deleting it outright lost a whole account's counters.
+func TestMergeQuotaStateFilesAbsorbsRatherThanDrops(t *testing.T) {
+	dir := t.TempDir()
+	dst := filepath.Join(dir, "dst.json")
+	src := filepath.Join(dir, "src.json")
+
+	write := func(path string, entries []dailyQuotaFileEntry) {
+		raw, err := json.Marshal(dailyQuotaFile{Version: 1, Usage: entries})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, raw, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(dst, []dailyQuotaFileEntry{{
+		AuthID: "acct", Model: "glm-5.2", Day: "2026-10-12",
+		dailyUsage: dailyUsage{TotalTokens: 100, Requests: 1},
+	}})
+	write(src, []dailyQuotaFileEntry{{
+		AuthID: "acct", Model: "glm-5.2", Day: "2026-10-12",
+		dailyUsage: dailyUsage{TotalTokens: 250, Requests: 2},
+	}, {
+		AuthID: "other", Model: "deepseek-v4.1-flash", Day: "2026-10-12",
+		dailyUsage: dailyUsage{TotalTokens: 7, Requests: 1},
+	}})
+
+	if !mergeQuotaStateFiles(dst, src) {
+		t.Fatal("merge reported failure")
+	}
+	raw, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var merged dailyQuotaFile
+	if err := json.Unmarshal(raw, &merged); err != nil {
+		t.Fatal(err)
+	}
+	byKey := map[string]dailyUsage{}
+	for _, e := range merged.Usage {
+		byKey[e.AuthID+"/"+e.Model] = e.dailyUsage
+	}
+	if got := byKey["acct/glm-5.2"]; got.TotalTokens != 350 || got.Requests != 3 {
+		t.Fatalf("same-key counters must sum, got %+v", got)
+	}
+	if got := byKey["other/deepseek-v4.1-flash"]; got.TotalTokens != 7 {
+		t.Fatalf("new key must be added, got %+v", got)
 	}
 }
 
@@ -152,12 +204,18 @@ func TestSetDailyQuotaPathMovesStateOutOfAuthDir(t *testing.T) {
 	if len(entries) != 0 {
 		t.Fatalf("auth dir must end clean, got %v", entries)
 	}
-	raw, err := os.ReadFile(filepath.Join(stateDir, dailyQuotaFileName))
+	// The legacy file is split into a per-account shard, and the legacy file
+	// itself is removed so the state directory stays tidy.
+	shard := filepath.Join(stateDir, "usage", quotaShardName("moved"))
+	raw, err := os.ReadFile(shard)
 	if err != nil {
-		t.Fatalf("state not carried over: %v", err)
+		t.Fatalf("state not carried over into a shard: %v", err)
 	}
-	if string(raw) != payload {
+	if !strings.Contains(string(raw), "\"total_tokens\":7") {
 		t.Fatalf("payload changed during migration: %s", raw)
+	}
+	if _, errLegacy := os.Stat(filepath.Join(stateDir, dailyQuotaFileName)); !errors.Is(errLegacy, os.ErrNotExist) {
+		t.Fatal("legacy single-file state must be removed after being split")
 	}
 }
 
